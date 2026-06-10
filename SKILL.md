@@ -28,6 +28,14 @@ and exports from the board. This runs on whatever agent/subscription is hosting 
 
 `SKILL_DIR` below = the directory this `SKILL.md` lives in. Run all commands from there.
 
+**Where boards live.** Resolve the workspace dir once and reuse it as `$EXGRAM_WS`:
+```bash
+EXGRAM_WS="$(node "$SKILL_DIR/lib/workspace.mjs")"   # ~/.exgram/workspace by default
+```
+Boards (`<slug>.json` spec + `<slug>.excalidraw` render) live there, **outside the skill
+folder**, so `npx skills update` (which mirrors the package dir and prunes untracked files)
+can never delete them. Override the location with `$EXGRAM_WORKSPACE`.
+
 ## Workflow
 
 1. **Figure out the input.**
@@ -37,7 +45,7 @@ and exports from the board. This runs on whatever agent/subscription is hosting 
      as a clean exgram diagram (this re-interprets it tidily, it is not a pixel copy). Capture
      what you can; the user corrects any misread by prompting.
    - **Editing an existing exgram diagram**: reuse its `slug` (step 3). Read its saved
-     `workspace/<slug>.json`, modify that spec, and rebuild. The spec is the source of truth.
+     `$EXGRAM_WS/<slug>.json`, modify that spec, and rebuild. The spec is the source of truth.
 
 2. **Classify the diagram type** and read the matching reference (only the one you need):
    - architecture / services / infra → `references/architecture.md`
@@ -50,29 +58,29 @@ and exports from the board. This runs on whatever agent/subscription is hosting 
 3. **Pick a slug** for this diagram: short, kebab-case, from its topic (e.g. `auth-flow`,
    `orders-db`). **Reuse the same slug to update an existing diagram**; use a new slug for a new one.
 
-4. **Write the spec** to `SKILL_DIR/workspace/<slug>.json` (schema below). Apply the style system
+4. **Write the spec** to `$EXGRAM_WS/<slug>.json` (schema below). Apply the style system
    by default: give each node a `role` so colors stay consistent, set a `title`, and set
    `legend: true` when colors carry meaning. This file persists, so the diagram stays editable.
 
 5. **Build the scene:**
    ```bash
-   node "$SKILL_DIR/lib/build.mjs" "$SKILL_DIR/workspace/<slug>.json" "$SKILL_DIR/workspace/<slug>.excalidraw"
+   node "$SKILL_DIR/lib/build.mjs" "$EXGRAM_WS/<slug>.json" "$EXGRAM_WS/<slug>.excalidraw"
    ```
 
 6. **Ensure the server is up** and, the first time you create this slug, **open its tab.** `serve.mjs`
    picks a port that is free or already serving THIS workspace (so a stale server from another install
-   can't hijack it) and records the real base URL in `workspace/.exgram-url`:
+   can't hijack it) and records the real base URL in `$EXGRAM_WS/.exgram-url`:
    ```bash
    node "$SKILL_DIR/lib/serve.mjs" >/dev/null 2>&1 &                 # starts, or exits if already served
-   for i in $(seq 1 50); do [ -f "$SKILL_DIR/workspace/.exgram-url" ] && break; sleep 0.1; done
-   BASE="$(cat "$SKILL_DIR/workspace/.exgram-url" 2>/dev/null || echo http://localhost:3737)"
+   for i in $(seq 1 50); do [ -f "$EXGRAM_WS/.exgram-url" ] && break; sleep 0.1; done
+   BASE="$(cat "$EXGRAM_WS/.exgram-url" 2>/dev/null || echo http://localhost:3737)"
    node "$SKILL_DIR/lib/open.mjs" "$BASE/?d=<slug>"                  # first time for this slug only
    ```
    Keep `serve.mjs` in the background so it survives across turns. Read `$BASE` from the file rather
    than assuming port 3737. On later edits to the same slug, don't reopen, the tab refreshes itself.
 
 7. **Tell the user** it's live at `$BASE/?d=<slug>` (the bare `$BASE` lists all boards), then **ask
-   smart follow-ups** (next section). On each follow-up, edit `workspace/<slug>.json` and rebuild, the
+   smart follow-ups** (next section). On each follow-up, edit `$EXGRAM_WS/<slug>.json` and rebuild, the
    board updates in place, keeping their zoom/pan. The board opens **read-only** (view mode); to let
    them tweak before exporting, point them at `$BASE/?d=<slug>&edit=1`.
 
@@ -95,7 +103,7 @@ Pick the ones that actually apply:
 Then apply their answer by editing the spec and rebuilding. Keep iterating — this is a
 live board, so cheap edits are the whole point.
 
-## Spec schema (`workspace/<slug>.json`)
+## Spec schema (`$EXGRAM_WS/<slug>.json`)
 
 ```jsonc
 {
@@ -154,14 +162,16 @@ and groups are simple bounding boxes (so contiguity matters). Authoring to the r
 output clean despite these.
 
 ## Notes
-- **Many boards at once.** Each diagram is its own `workspace/<slug>.json` (spec) +
-  `workspace/<slug>.excalidraw` (render), served at `/?d=<slug>`. The bare URL lists them all.
+- **Many boards at once.** Each diagram is its own `$EXGRAM_WS/<slug>.json` (spec) +
+  `$EXGRAM_WS/<slug>.excalidraw` (render), served at `/?d=<slug>`. The bare URL lists them all.
+- **Boards persist across updates.** `$EXGRAM_WS` defaults to `~/.exgram/workspace`, outside the
+  skill folder, so `npx skills update` does not delete them. Override with `$EXGRAM_WORKSPACE`.
 - **Navigating + deleting.** A board has a "← boards" link back to the list; users can delete a board
   from the index list (per row) or the board's bar. Deleting removes its `<slug>.json` + `<slug>.excalidraw`.
 - The viewer loads Excalidraw from a CDN, so the board needs internet the first time.
 - Keep `serve.mjs` running in the background; never block the turn waiting on it.
 - Save = the user exports from Excalidraw (`.excalidraw` / PNG / SVG) via the canvas menu.
-- The spec (`workspace/<slug>.json`) is the persisted source of truth, so a diagram stays editable
+- The spec (`$EXGRAM_WS/<slug>.json`) is the persisted source of truth, so a diagram stays editable
   across turns: reuse its slug, change the spec, rebuild. A user's manual edits on the canvas are
   transient (each build replaces the render); fold anything worth keeping back into the spec, or
   have them export. Zoom/pan is preserved across rebuilds.

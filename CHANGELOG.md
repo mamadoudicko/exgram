@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Boards now persist in a per-user data directory (`~/.exgram/workspace` by default,
+  override with `$EXGRAM_WORKSPACE`) instead of inside the package. `npx skills update`
+  mirrors the package directory and prunes untracked files, which previously deleted every
+  user-created board on update. Storing boards outside the package keeps them safe.
+
+### Added
+- `lib/workspace.mjs` — `resolveWorkspace()` helper (and a CLI that prints the resolved
+  path) so the server and the SKILL.md workflow agree on a single, update-safe location.
+
 ## [1.2.0] - 2026-06-10
 
 ### Added
