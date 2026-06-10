@@ -1,0 +1,12 @@
+# dependencies (none required, but just in case)
+node_modules/
+
+# the live working canvas — generated, not committed
+workspace/*
+!workspace/.gitkeep
+
+# OS / editor noise
+.DS_Store
+*.log
+.idea/
+.vscode/
