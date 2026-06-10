@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>exgram — live diagram</title>
+  <!-- Excalidraw styles -->
+  <link rel="stylesheet" href="https://esm.sh/@excalidraw/excalidraw@0.18.0/dist/prod/index.css" />
+  <link rel="icon" href="data:," />
+  <style>
+    html, body, #app { margin: 0; height: 100%; width: 100%; }
+    body { font-family: ui-sans-serif, system-ui, sans-serif; }
+    #status {
+      position: fixed; bottom: 14px; left: 14px; z-index: 9;
+      background: rgba(30,30,30,.85); color: #fff; font-size: 12px;
+      padding: 6px 10px; border-radius: 999px; display: flex; gap: 8px;
+      align-items: center; pointer-events: none; user-select: none;
+      box-shadow: 0 2px 8px rgba(0,0,0,.2);
+    }
+    #status .dot { width: 8px; height: 8px; border-radius: 50%; background: #51cf66; }
+    #status.stale .dot { background: #ff922b; }
+    #status.error .dot { background: #ff6b6b; }
+    #boot { position: fixed; inset: 0; display: grid; place-items: center; color: #868e96; }
+    /* index landing (shown when no ?d= slug is given) */
+    #index { max-width: 640px; margin: 64px auto; padding: 0 24px; color: #1e1e1e; }
+    #index h1 { font-size: 22px; margin: 0 0 4px; }
+    #index p { color: #868e96; margin: 0 0 24px; }
+    #index ul { list-style: none; padding: 0; margin: 0; }
+    #index li { margin: 0 0 8px; }
+    #index a {
+      display: block; padding: 12px 16px; border: 1px solid #dee2e6; border-radius: 10px;
+      text-decoration: none; color: #1971c2; font-weight: 600;
+    }
+    #index a:hover { background: #f1f3f5; }
+    #index .empty { color: #adb5bd; }
+  </style>
+  <script>
+    // Where Excalidraw loads its fonts from. If this CDN path 404s, Excalidraw
+    // silently falls back to system fonts and the diagram still renders.
+    window.EXCALIDRAW_ASSET_PATH = 'https://esm.sh/@excalidraw/excalidraw@0.18.0/dist/prod/';
+  </script>
+</head>
+<body>
+  <div id="boot">Loading exgram viewer…</div>
+  <div id="app"></div>
+  <div id="index" hidden></div>
+  <div id="status" hidden><span class="dot"></span><span id="status-text">starting…</span></div>
+
+  <script type="module">
+    import React from 'https://esm.sh/react@18.3.1';
+    import { createRoot } from 'https://esm.sh/react-dom@18.3.1/client';
+    import { Excalidraw } from 'https://esm.sh/@excalidraw/excalidraw@0.18.0?deps=react@18.3.1,react-dom@18.3.1';
+
+    const slug = new URLSearchParams(location.search).get('d');
+    const boot = document.getElementById('boot');
+
+    // ---- index mode: no ?d= -> list all live boards ----
+    if (!slug) {
+      boot.remove();
+      const index = document.getElementById('index');
+      index.hidden = false;
+      async function renderIndex() {
+        let items = [];
+        try { items = await (await fetch('/api/diagrams', { cache: 'no-store' })).json(); } catch {}
+        index.innerHTML =
+          '<h1>exgram</h1><p>Live boards on this server. Open one, or ask your agent to draw a new one.</p>' +
+          (items.length
+            ? '<ul>' + items.map((s) => `<li><a href="/?d=${encodeURIComponent(s)}">${s}</a></li>`).join('') + '</ul>'
+            : '<p class="empty">No diagrams yet. Ask your agent to draw something.</p>');
+      }
+      renderIndex();
+      setInterval(renderIndex, 2000); // pick up newly created boards
+    } else {
+      // ---- board mode: render and watch one scene ----
+      const statusEl = document.getElementById('status');
+      const statusText = document.getElementById('status-text');
+      statusEl.hidden = false;
+      document.title = `exgram — ${slug}`;
+      let api = null, lastText = '', firstLoaded = false;
+
+      const setStatus = (kind, text) => {
+        statusEl.className = kind === 'ok' ? '' : kind;
+        statusText.textContent = text;
+      };
+
+      function App() {
+        return React.createElement(Excalidraw, {
+          excalidrawAPI: (a) => { api = a; },
+          theme: 'light',
+          initialData: { appState: { viewBackgroundColor: '#ffffff' } },
+          UIOptions: { canvasActions: { loadScene: true, export: { saveFileToDisk: true }, saveToActiveFile: false } },
+        });
+      }
+      boot.remove();
+      createRoot(document.getElementById('app')).render(React.createElement(App));
+
+      // Poll fast on success; back off (capped) if the server vanishes so a dead
+      // server doesn't spam the console every 0.5s.
+      const POLL_MIN = 500, POLL_MAX = 5000;
+      let pollDelay = POLL_MIN;
+
+      async function poll() {
+        try {
+          const res = await fetch(`/scene/${encodeURIComponent(slug)}.excalidraw?t=${Date.now()}`, { cache: 'no-store' });
+          pollDelay = POLL_MIN; // server responded -> back to fast polling
+          if (res.status === 404) {
+            setStatus('stale', `waiting for "${slug}"…`);
+          } else if (res.ok) {
+            const text = await res.text();
+            // Only consume the text once the canvas API is ready, otherwise we'd
+            // mark it "seen" before rendering and never draw it.
+            if (api && text && text !== lastText) {
+              lastText = text;
+              const scene = JSON.parse(text);
+              if (Array.isArray(scene.elements)) {
+                api.updateScene({ elements: scene.elements }); // omit appState -> keep zoom/pan
+                if (!firstLoaded) {
+                  firstLoaded = true;
+                  setTimeout(() => {
+                    try { api.scrollToContent(scene.elements, { fitToContent: true, animate: false }); } catch {}
+                  }, 60);
+                }
+              }
+            }
+            setStatus('ok', `exgram • ${slug} • live · ${new Date().toLocaleTimeString()}`);
+          }
+        } catch (err) {
+          pollDelay = Math.min(pollDelay * 2, POLL_MAX); // server down -> slow down
+          setStatus('error', 'viewer offline · retrying…');
+        } finally {
+          setTimeout(poll, pollDelay);
+        }
+      }
+      poll();
+    }
+  </script>
+</body>
+</html>
