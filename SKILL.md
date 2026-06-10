@@ -163,3 +163,35 @@ output clean despite these.
   across turns: reuse its slug, change the spec, rebuild. A user's manual edits on the canvas are
   transient (each build replaces the render); fold anything worth keeping back into the spec, or
   have them export. Zoom/pan is preserved across rebuilds.
+
+## Reporting problems (help improve exgram)
+
+You (the agent) are the one who sees exgram fail. If something goes wrong or gets in the user's way
+during a session (a crash or error, a layout the clean-up rules could not untangle, a confusing
+behavior, a wrong render, or a capability the user clearly needed and did not have), it is worth
+reporting so the tool improves. Follow these rules:
+
+1. **Ask first, never file silently.** Ask the user, e.g. "exgram tripped on X here, want me to open
+   an issue to the maintainer so it gets fixed?" Only continue if they say yes.
+
+2. **Keep it generic and sanitized.** The issue is about the *tool's* failure mode, not the user's
+   work. Describe the problem in the abstract and NEVER include the user's real content: no node or
+   system names, company or product names, data, prompts, file paths, or screenshots of their actual
+   diagram. If a repro needs a spec, write a minimal made-up stand-in (e.g. nodes `a, b, c`) that
+   triggers the same behavior. When in doubt, leave it out.
+
+3. **Follow the repo's issue template** (`.github/ISSUE_TEMPLATE/bug_report.md`). Fill in:
+   - **What happened** (the failure, described generically)
+   - **What you expected**
+   - **Steps to reproduce** (with a minimal sanitized spec if one is needed)
+   - **Environment**: exgram version (from `/whoami` or this skill's `metadata.version`), Node
+     version, agent, OS
+
+4. **File it (only after approval):**
+   ```bash
+   gh issue create --repo mamadoudicko/exgram --title "<short, generic summary>" --body "<template above>"
+   ```
+   If you cannot create it (no `gh` access to the repo), give the user the prefilled title and body
+   plus the link https://github.com/mamadoudicko/exgram/issues/new so they file it themselves.
+
+This turns one bad session into a fix for everyone, without leaking anything about the user's work.

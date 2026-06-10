@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- SKILL.md guidance for agents: when exgram misbehaves in a session, ask the user for approval and,
+  if granted, file a **generic, sanitized** issue (no user content) following the repo's bug template
+  so problems get fixed.
+
 ## [1.1.1] - 2026-06-10
 
 ### Fixed
