@@ -15,7 +15,7 @@ allowed-tools:
   - Write
   - Edit
 metadata:
-  version: 1.1.1
+  version: 1.2.0
   author: Mamadou Dicko
 ---
 
@@ -156,6 +156,8 @@ output clean despite these.
 ## Notes
 - **Many boards at once.** Each diagram is its own `workspace/<slug>.json` (spec) +
   `workspace/<slug>.excalidraw` (render), served at `/?d=<slug>`. The bare URL lists them all.
+- **Navigating + deleting.** A board has a "← boards" link back to the list; users can delete a board
+  from the index list (per row) or the board's bar. Deleting removes its `<slug>.json` + `<slug>.excalidraw`.
 - The viewer loads Excalidraw from a CDN, so the board needs internet the first time.
 - Keep `serve.mjs` running in the background; never block the turn waiting on it.
 - Save = the user exports from Excalidraw (`.excalidraw` / PNG / SVG) via the canvas menu.

@@ -26,13 +26,27 @@
     #index h1 { font-size: 22px; margin: 0 0 4px; }
     #index p { color: #868e96; margin: 0 0 24px; }
     #index ul { list-style: none; padding: 0; margin: 0; }
-    #index li { margin: 0 0 8px; }
-    #index a {
-      display: block; padding: 12px 16px; border: 1px solid #dee2e6; border-radius: 10px;
+    #index li { margin: 0 0 8px; display: flex; gap: 8px; align-items: stretch; }
+    #index li a {
+      flex: 1; padding: 12px 16px; border: 1px solid #dee2e6; border-radius: 10px;
       text-decoration: none; color: #1971c2; font-weight: 600;
     }
-    #index a:hover { background: #f1f3f5; }
-    #index .empty { color: #adb5bd; }
+    #index li a:hover { background: #f1f3f5; }
+    #index button.del {
+      font: inherit; cursor: pointer; color: #e03131; background: #fff;
+      border: 1px solid #ffc9c9; border-radius: 10px; padding: 0 14px;
+    }
+    #index button.del:hover { background: #fff5f5; }
+    #index p.empty { color: #adb5bd; }
+    /* board-view chrome: back to list + delete the current board */
+    #boardbar { position: fixed; top: 12px; left: 56px; z-index: 9; display: none; gap: 6px; align-items: center; }
+    #boardbar a, #boardbar button {
+      font: inherit; font-size: 12px; line-height: 1; cursor: pointer; text-decoration: none;
+      background: #fff; color: #1971c2; border: 1px solid #dee2e6; border-radius: 8px;
+      padding: 7px 10px; box-shadow: 0 1px 4px rgba(0,0,0,.08);
+    }
+    #boardbar button.del { color: #e03131; border-color: #ffc9c9; }
+    #boardbar a:hover, #boardbar button:hover { background: #f1f3f5; }
     /* 404 overlay: shown in board mode when the slug truly isn't on this server */
     #notfound {
       position: fixed; inset: 0; z-index: 8; overflow: auto; background: #fff;
@@ -67,6 +81,7 @@
   <div id="app"></div>
   <div id="index" hidden></div>
   <div id="notfound" hidden></div>
+  <div id="boardbar"><a href="/">← boards</a><button class="del" type="button">Delete</button></div>
   <div id="status" hidden><span class="dot"></span><span id="status-text">starting…</span></div>
 
   <script type="module">
@@ -92,9 +107,20 @@
         index.innerHTML =
           '<h1>exgram</h1><p>Live boards on this server. Open one, or ask your agent to draw a new one.</p>' +
           (items.length
-            ? '<ul>' + items.map((s) => `<li><a href="/?d=${encodeURIComponent(s)}">${s}</a></li>`).join('') + '</ul>'
+            ? '<ul>' + items.map((s) =>
+                `<li><a href="/?d=${encodeURIComponent(s)}">${s}</a>` +
+                `<button class="del" type="button" data-slug="${encodeURIComponent(s)}">Delete</button></li>`).join('') + '</ul>'
             : '<p class="empty">No diagrams yet. Ask your agent to draw something.</p>');
       }
+      // delete a board from the list (event-delegated so it survives re-renders)
+      index.addEventListener('click', async (ev) => {
+        const btn = ev.target.closest('button.del');
+        if (!btn) return;
+        const s = decodeURIComponent(btn.dataset.slug);
+        if (!confirm(`Delete board "${s}"? This removes its files.`)) return;
+        try { await fetch(`/scene/${encodeURIComponent(s)}.excalidraw`, { method: 'DELETE' }); } catch {}
+        renderIndex();
+      });
       renderIndex();
       setInterval(renderIndex, 2000); // pick up newly created boards
     } else {
@@ -104,6 +130,15 @@
       statusEl.hidden = false;
       document.title = `exgram — ${slug}`;
       let api = null, lastText = '', firstLoaded = false;
+
+      // back-to-list + delete-this-board chrome
+      const boardbar = document.getElementById('boardbar');
+      boardbar.style.display = 'flex';
+      boardbar.querySelector('button.del').addEventListener('click', async () => {
+        if (!confirm(`Delete board "${slug}"? This removes its files.`)) return;
+        try { await fetch(`/scene/${encodeURIComponent(slug)}.excalidraw`, { method: 'DELETE' }); } catch {}
+        location.href = '/';
+      });
 
       const setStatus = (kind, text) => {
         statusEl.className = kind === 'ok' ? '' : kind;
