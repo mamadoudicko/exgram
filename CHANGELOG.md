@@ -7,11 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-06-10
+
 ### Changed
 - Boards now persist in a per-user data directory (`~/.exgram/workspace` by default,
   override with `$EXGRAM_WORKSPACE`) instead of inside the package. `npx skills update`
   mirrors the package directory and prunes untracked files, which previously deleted every
   user-created board on update. Storing boards outside the package keeps them safe.
+- Boards are now **per-user, not per-install**: every install resolves the same default
+  workspace, so projects share `~/.exgram/workspace` unless `$EXGRAM_WORKSPACE` is set per
+  project. (Side benefit: one canonical server is reused via `/whoami` matching.)
 
 ### Added
 - `lib/workspace.mjs` — `resolveWorkspace()` helper (and a CLI that prints the resolved
