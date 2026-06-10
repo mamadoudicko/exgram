@@ -13,6 +13,7 @@ It's a Claude Code skill, so it runs on your agent with **no API key**.
 ```bash
 npx skills add mamadoudicko/exgram --agent claude-code   # Claude Code
 npx skills add mamadoudicko/exgram -g                     # globally, for every project
+npx skills update exgram                                 # get the latest version later
 ```
 
 Needs **Node ≥ 18**, and internet on first load (the board pulls Excalidraw from a CDN).

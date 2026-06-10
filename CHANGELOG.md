@@ -7,10 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-06-10
+
 ### Added
+- Delete a board from the index list (per row) or from a board's bar; a `DELETE
+  /scene/<slug>.excalidraw` endpoint removes the board's spec + render.
+- "← boards" back link on the board view to return to the index.
 - SKILL.md guidance for agents: when exgram misbehaves in a session, ask the user for approval and,
-  if granted, file a **generic, sanitized** issue (no user content) following the repo's bug template
-  so problems get fixed.
+  if granted, file a **generic, sanitized** issue (no user content) following the repo's bug template.
+
+### Changed
+- README rewritten to be use-focused and Claude-first; added a "raw notes to clean diagram" use case
+  and an `npx skills update exgram` command.
+- package.json/About note broad agent support (Claude Code, Cursor, Codex, Copilot & 70+ agents).
 
 ## [1.1.1] - 2026-06-10
 
