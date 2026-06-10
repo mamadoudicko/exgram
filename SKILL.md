@@ -15,7 +15,7 @@ allowed-tools:
   - Write
   - Edit
 metadata:
-  version: 1.0.0
+  version: 1.1.0
   author: Mamadou Dicko
 ---
 
@@ -59,17 +59,22 @@ and exports from the board. This runs on whatever agent/subscription is hosting 
    node "$SKILL_DIR/lib/build.mjs" "$SKILL_DIR/workspace/<slug>.json" "$SKILL_DIR/workspace/<slug>.excalidraw"
    ```
 
-6. **Ensure the server is up** (starts once) and, the first time you create this slug, **open its tab:**
+6. **Ensure the server is up** and, the first time you create this slug, **open its tab.** `serve.mjs`
+   picks a port that is free or already serving THIS workspace (so a stale server from another install
+   can't hijack it) and records the real base URL in `workspace/.exgram-url`:
    ```bash
-   curl -sf localhost:3737/health >/dev/null || ( node "$SKILL_DIR/lib/serve.mjs" & sleep 1 )
-   node "$SKILL_DIR/lib/open.mjs" "http://localhost:3737/?d=<slug>"   # first time for this slug only
+   node "$SKILL_DIR/lib/serve.mjs" >/dev/null 2>&1 &                 # starts, or exits if already served
+   for i in $(seq 1 50); do [ -f "$SKILL_DIR/workspace/.exgram-url" ] && break; sleep 0.1; done
+   BASE="$(cat "$SKILL_DIR/workspace/.exgram-url" 2>/dev/null || echo http://localhost:3737)"
+   node "$SKILL_DIR/lib/open.mjs" "$BASE/?d=<slug>"                  # first time for this slug only
    ```
-   Keep `serve.mjs` in the background so it survives across turns. On later edits to the same slug,
-   don't reopen, the open tab refreshes itself.
+   Keep `serve.mjs` in the background so it survives across turns. Read `$BASE` from the file rather
+   than assuming port 3737. On later edits to the same slug, don't reopen, the tab refreshes itself.
 
-7. **Tell the user** it's live at `http://localhost:3737/?d=<slug>` (the bare URL lists all boards),
-   then **ask smart follow-ups** (next section). On each follow-up, edit `workspace/<slug>.json` and
-   rebuild, the board updates in place, keeping their zoom/pan.
+7. **Tell the user** it's live at `$BASE/?d=<slug>` (the bare `$BASE` lists all boards), then **ask
+   smart follow-ups** (next section). On each follow-up, edit `workspace/<slug>.json` and rebuild, the
+   board updates in place, keeping their zoom/pan. The board opens **read-only** (view mode); to let
+   them tweak before exporting, point them at `$BASE/?d=<slug>&edit=1`.
 
 ## Ask smart follow-ups (important)
 
@@ -96,13 +101,15 @@ live board, so cheap edits are the whole point.
 {
   "title": "Checkout flow",            // optional, drawn above the diagram
   "legend": true,                       // optional, shows role color key
+  "roleColors": { "frontend": "#ff8787" }, // optional: recolor a role for THIS diagram only
+                                           // (nodes + legend swatch stay in sync; doesn't touch others)
   "nodes": [
     { "id": "web", "label": "Web app", "role": "frontend" },
     { "id": "api", "label": "API",     "role": "backend" },
     { "id": "db",  "label": "Postgres","role": "datastore", "shape": "rectangle" }
     // role: frontend|backend|datastore|external|queue|service|decision  (see styles/palette.md)
     // shape: rectangle|ellipse|diamond  (diamond = decision)
-    // x/y: optional absolute override; color: optional hex override
+    // x/y: optional absolute override; color: per-node fill override (stroke is derived to match)
   ],
   "edges": [
     { "from": "web", "to": "api", "label": "POST /checkout" },
@@ -137,9 +144,10 @@ rendered board and fix it if it looks crowded:
   boxes in between. Reorder nodes so connected ones sit next to each other.
 - **Don't overcrowd.** Aim for ~12 nodes max per diagram. For a bigger system, split it into
   several focused diagrams (e.g. one per subsystem) rather than one dense one.
-- **Verify.** If you can see the board (or after the user reacts), check for overlapping labels,
-  overlapping group boxes, or arrows crossing through boxes. If present, simplify: fewer nodes,
-  shorter labels, remove cycles, or split the diagram. Rebuild and it refreshes in place.
+- **Verify.** `build.mjs` prints **layout warnings** to stderr on each build (overlapping nodes,
+  edges crossing through boxes). If you see any, simplify: fewer nodes, shorter labels, remove
+  cycles, or split the diagram, then rebuild (it refreshes in place). Also glance at the board for
+  overlapping labels or group boxes.
 
 Known engine limits to design around: no crossing-minimization, no edge routing around boxes,
 and groups are simple bounding boxes (so contiguity matters). Authoring to the rules above keeps
