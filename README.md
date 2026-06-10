@@ -34,6 +34,9 @@ lists them all.
 
 ![Install once, then for every diagram: ask, it builds, view the live board, refine by chatting, export](./docs/install-and-use.png)
 
+Your boards are saved in `~/.exgram/workspace` (set `EXGRAM_WORKSPACE` to change it). They live
+outside the skill folder on purpose, so running `npx skills update exgram` never deletes them.
+
 ## What it's good for
 
 - **Raw notes → clean diagram** — dump your messy project notes and exgram structures them into a tidy, labeled board.
