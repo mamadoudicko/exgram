@@ -82,6 +82,8 @@
     // ---- index mode: no ?d= -> list all live boards ----
     if (!slug) {
       boot.remove();
+      // the empty #app is full-viewport-height and would push the list off-screen
+      document.getElementById('app').style.display = 'none';
       const index = document.getElementById('index');
       index.hidden = false;
       async function renderIndex() {

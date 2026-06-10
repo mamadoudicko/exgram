@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-06-10
+
+### Fixed
+- Index page (`/`, no slug) showed a blank screen: the empty full-height `#app` pushed the board
+  list below the fold. The viewer now hides `#app` in index mode so the list renders at the top.
+
 ## [1.1.0] - 2026-06-10
 
 ### Added
