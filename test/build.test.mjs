@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildScene, PALETTE } from '../lib/build.mjs';
+import { buildScene, PALETTE, validateSpec } from '../lib/build.mjs';
 
 const REQUIRED = [
   'id', 'type', 'x', 'y', 'width', 'height', 'angle', 'strokeColor',
@@ -180,4 +180,48 @@ test('unlabeled group reserves no title row', () => {
   const unlabeled = buildScene({ ...base, groups: [{ nodeIds: ['a', 'b'] }] });
   const topY = (s) => s.elements.find((e) => e.id === 'g0').y;
   assert.ok(topY(unlabeled) > topY(labeled), 'unlabeled group top sits lower (no 22px title row)');
+});
+
+test('validateSpec catches structural errors (#8)', () => {
+  assert.deepEqual(validateSpec({ nodes: [{ id: 'x' }, { id: 'x' }], edges: [] }), ['duplicate node id "x"']);
+  assert.ok(validateSpec({ nodes: [{ id: 'x' }], edges: [{ from: 1, to: 'x' }] }).length, 'non-string from flagged');
+  assert.ok(validateSpec({ nodes: [{ label: 'no id' }], edges: [] }).length, 'missing id flagged');
+  assert.deepEqual(validateSpec({ nodes: [{ id: 'a' }], edges: [] }), [], 'valid spec passes');
+});
+
+test('roleColors recolors nodes and keeps the legend swatch in sync (#4)', () => {
+  const scene = buildScene({
+    legend: true, roleColors: { frontend: '#ff0000' },
+    nodes: [{ id: 'a', label: 'A', role: 'frontend' }], edges: [],
+  });
+  const rect = scene.elements.find((e) => e.id === 'n.a');
+  const swatch = scene.elements.find((e) => e.id === 'legend.frontend.s');
+  assert.equal(rect.backgroundColor, '#ff0000');
+  assert.equal(swatch.backgroundColor, '#ff0000', 'legend swatch matches the role override');
+  assert.notEqual(rect.strokeColor, PALETTE.frontend.stroke, 'stroke derived from override, not default role stroke');
+});
+
+test('per-node color override also sets a matching stroke (#4)', () => {
+  const scene = buildScene({ nodes: [{ id: 'a', label: 'A', role: 'frontend', color: '#00ff00' }], edges: [] });
+  const rect = scene.elements.find((e) => e.id === 'n.a');
+  assert.equal(rect.backgroundColor, '#00ff00');
+  assert.notEqual(rect.strokeColor, PALETTE.frontend.stroke, 'stroke is no longer the role stroke');
+  assert.match(rect.strokeColor, /^#[0-9a-f]{6}$/i, 'stroke is a valid hex');
+});
+
+test('source-less node is ranked by its successor, not pinned to column 0 (#6)', () => {
+  const scene = buildScene({
+    nodes: [{ id: 'root', label: 'R' }, { id: 'mid', label: 'M' }, { id: 'leaf', label: 'L' }, { id: 'orphan', label: 'O' }],
+    edges: [{ from: 'root', to: 'mid' }, { from: 'mid', to: 'leaf' }, { from: 'orphan', to: 'leaf' }],
+  });
+  const x = (id) => scene.elements.find((e) => e.id === `n.${id}`).x;
+  assert.ok(x('orphan') > x('root'), 'orphan is pulled right toward the node it feeds');
+});
+
+test('layout linter flags overlapping nodes (#6)', () => {
+  const scene = buildScene({
+    nodes: [{ id: 'a', label: 'A', x: 0, y: 0 }, { id: 'b', label: 'B', x: 10, y: 10 }],
+    edges: [],
+  });
+  assert.ok(Array.isArray(scene._warnings) && scene._warnings.some((w) => w.includes('overlap')), 'overlap warning emitted');
 });

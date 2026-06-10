@@ -33,6 +33,28 @@
     }
     #index a:hover { background: #f1f3f5; }
     #index .empty { color: #adb5bd; }
+    /* 404 overlay: shown in board mode when the slug truly isn't on this server */
+    #notfound {
+      position: fixed; inset: 0; z-index: 8; overflow: auto; background: #fff;
+    }
+    #notfound .panel { max-width: 640px; margin: 64px auto; padding: 0 24px; color: #1e1e1e; }
+    #notfound h1 { font-size: 22px; margin: 0 0 12px; }
+    #notfound h1 .slug { color: #e8590c; }
+    #notfound .meta { color: #868e96; margin: 0 0 8px; font-size: 14px; }
+    #notfound .meta code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      background: #f1f3f5; padding: 2px 6px; border-radius: 6px; color: #1e1e1e; word-break: break-all;
+    }
+    #notfound h2 { font-size: 14px; color: #495057; margin: 24px 0 8px; }
+    #notfound ul { list-style: none; padding: 0; margin: 0; }
+    #notfound li { margin: 0 0 8px; }
+    #notfound a.board {
+      display: block; padding: 12px 16px; border: 1px solid #dee2e6; border-radius: 10px;
+      text-decoration: none; color: #1971c2; font-weight: 600;
+    }
+    #notfound a.board:hover { background: #f1f3f5; }
+    #notfound .empty { color: #adb5bd; }
+    #notfound .hint { color: #adb5bd; margin: 24px 0 0; font-size: 13px; }
   </style>
   <script>
     // Where Excalidraw loads its fonts from. If this CDN path 404s, Excalidraw
@@ -44,6 +66,7 @@
   <div id="boot">Loading exgram viewer…</div>
   <div id="app"></div>
   <div id="index" hidden></div>
+  <div id="notfound" hidden></div>
   <div id="status" hidden><span class="dot"></span><span id="status-text">starting…</span></div>
 
   <script type="module">
@@ -51,7 +74,9 @@
     import { createRoot } from 'https://esm.sh/react-dom@18.3.1/client';
     import { Excalidraw } from 'https://esm.sh/@excalidraw/excalidraw@0.18.0?deps=react@18.3.1,react-dom@18.3.1';
 
-    const slug = new URLSearchParams(location.search).get('d');
+    const params = new URLSearchParams(location.search);
+    const slug = params.get('d');
+    const editMode = params.get('edit') === '1';
     const boot = document.getElementById('boot');
 
     // ---- index mode: no ?d= -> list all live boards ----
@@ -83,10 +108,68 @@
         statusText.textContent = text;
       };
 
+      // ---- 404 overlay: surfaces when the board truly isn't on this server ----
+      const notFoundEl = document.getElementById('notfound');
+      const NOT_FOUND_GRACE_MS = 1500; // tolerate a slow first build before alarming
+      let firstSeen404At = null;        // when the current run of 404s began
+      let notFoundRendered = false;     // overlay built/visible?
+
+      const escapeHtml = (s) =>
+        String(s).replace(/[&<>"']/g, (c) =>
+          ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+
+      function hideNotFound() {
+        firstSeen404At = null;
+        if (notFoundRendered) {
+          notFoundEl.hidden = true;
+          notFoundEl.innerHTML = '';
+          notFoundRendered = false;
+        }
+      }
+
+      async function showNotFound() {
+        if (notFoundRendered) return; // build it once; it links elsewhere
+        notFoundRendered = true;
+        notFoundEl.hidden = false;
+        notFoundEl.innerHTML =
+          '<div class="panel">' +
+            `<h1>No board named "<span class="slug">${escapeHtml(slug)}</span>" on this server.</h1>` +
+            '<p class="meta" id="nf-workspace">Looking up this server’s workspace…</p>' +
+            '<h2>Boards that do exist here</h2>' +
+            '<ul id="nf-list"><li class="empty">Loading…</li></ul>' +
+            '<p class="hint">Did the build run? Is another exgram server holding this port? See the workspace above.</p>' +
+          '</div>';
+
+        // Workspace (which folder this server actually serves) via /whoami.
+        try {
+          const who = await (await fetch('/whoami', { cache: 'no-store' })).json();
+          const ws = document.getElementById('nf-workspace');
+          if (ws) ws.innerHTML = 'This server is serving workspace: <code>' + escapeHtml(who.workspace) + '</code>';
+        } catch {
+          const ws = document.getElementById('nf-workspace');
+          if (ws) ws.textContent = 'Could not reach /whoami on this server.';
+        }
+
+        // The boards that actually exist, as clickable links.
+        try {
+          const items = await (await fetch('/api/diagrams', { cache: 'no-store' })).json();
+          const list = document.getElementById('nf-list');
+          if (list) {
+            list.innerHTML = (Array.isArray(items) && items.length)
+              ? items.map((s) => `<li><a class="board" href="/?d=${encodeURIComponent(s)}">${escapeHtml(s)}</a></li>`).join('')
+              : '<li class="empty">No boards on this server yet.</li>';
+          }
+        } catch {
+          const list = document.getElementById('nf-list');
+          if (list) list.innerHTML = '<li class="empty">Could not load the board list.</li>';
+        }
+      }
+
       function App() {
         return React.createElement(Excalidraw, {
           excalidrawAPI: (a) => { api = a; },
           theme: 'light',
+          viewModeEnabled: !editMode, // read-only by default; ?edit=1 unlocks editing
           initialData: { appState: { viewBackgroundColor: '#ffffff' } },
           UIOptions: { canvasActions: { loadScene: true, export: { saveFileToDisk: true }, saveToActiveFile: false } },
         });
@@ -105,7 +188,14 @@
           pollDelay = POLL_MIN; // server responded -> back to fast polling
           if (res.status === 404) {
             setStatus('stale', `waiting for "${slug}"…`);
+            // Only alarm once the board has *never* loaded and keeps 404ing past
+            // the grace window; a normal slow first build keeps the "waiting" pill.
+            if (!firstLoaded) {
+              if (firstSeen404At === null) firstSeen404At = Date.now();
+              else if (Date.now() - firstSeen404At >= NOT_FOUND_GRACE_MS) showNotFound();
+            }
           } else if (res.ok) {
+            hideNotFound(); // board appeared -> drop the error panel, draw normally
             const text = await res.text();
             // Only consume the text once the canvas API is ready, otherwise we'd
             // mark it "seen" before rendering and never draw it.
@@ -117,7 +207,7 @@
                 if (!firstLoaded) {
                   firstLoaded = true;
                   setTimeout(() => {
-                    try { api.scrollToContent(scene.elements, { fitToContent: true, animate: false }); } catch {}
+                    try { api.scrollToContent(scene.elements, { fitToContent: true, animate: false, viewportZoomFactor: 0.85 }); } catch {}
                   }, 60);
                 }
               }
