@@ -15,7 +15,7 @@ allowed-tools:
   - Write
   - Edit
 metadata:
-  version: 1.2.1
+  version: 1.2.2
   author: Mamadou Dicko
 ---
 

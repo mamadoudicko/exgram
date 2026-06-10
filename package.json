@@ -1,6 +1,6 @@
 {
   "name": "exgram",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "Turn a natural-language prompt or an image into a live, editable Excalidraw diagram. An agent skill (Claude Code, Cursor, Codex, Copilot & 70+ agents) with auto-layout and a self-refreshing local board.",
   "type": "module",
   "license": "MIT",

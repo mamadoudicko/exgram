@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.2] - 2026-06-10
+
+### Fixed
+- CLI entry points (`build.mjs`, `workspace.mjs`) now run when the skill is installed
+  by symlink (the `npx skills` default). The previous guard compared `import.meta.url`
+  (real path) to `process.argv[1]` (the symlink) as raw strings, so it never matched
+  under a symlinked install: `node lib/workspace.mjs` printed nothing and the SKILL.md
+  workflow's `$EXGRAM_WS` came back empty. New `lib/cli.mjs#isMain()` compares real paths.
+
 ## [1.2.1] - 2026-06-10
 
 ### Changed
