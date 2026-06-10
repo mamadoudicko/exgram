@@ -23,6 +23,7 @@ Just ask:
 
 > "Diagram our auth flow."
 > "Draw the orders database schema."
+> "Here are my rough project notes, turn them into a diagram." _(paste the notes)_
 > "Turn this screenshot into an editable diagram." _(attach an image)_
 
 exgram draws a first version, opens a live board in your browser, and offers tweaks (colors, level of
@@ -34,6 +35,7 @@ lists them all.
 
 ## What it's good for
 
+- **Raw notes → clean diagram** — dump your messy project notes and exgram structures them into a tidy, labeled board.
 - **Architecture & infra** — services, queues, data stores, color-coded by role.
 - **Flowcharts & state machines** — steps, decisions, swimlanes.
 - **Database / ER schemas** — tables, keys, relationships.
