@@ -18,6 +18,28 @@
       box-shadow: 0 2px 8px rgba(0,0,0,.2);
     }
     #status .dot { width: 8px; height: 8px; border-radius: 50%; background: #51cf66; }
+    /* save affordance (board edit mode only): explicit save + saved/dirty pill.
+       Bottom-RIGHT so it never collides with the top-left chrome (#boardbar) the
+       other branch is reworking, nor with the bottom-left #status pill. */
+    #savebar {
+      position: fixed; bottom: 14px; right: 14px; z-index: 9; display: none;
+      gap: 8px; align-items: center; user-select: none;
+    }
+    #savebar #save-state {
+      font-size: 12px; color: #fff; background: rgba(30,30,30,.85);
+      padding: 6px 10px; border-radius: 999px; display: flex; gap: 8px; align-items: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,.2);
+    }
+    #savebar #save-state .dot { width: 8px; height: 8px; border-radius: 50%; background: #51cf66; }
+    #savebar #save-state.dirty .dot { background: #ffd43b; }
+    #savebar #save-state.saving .dot { background: #4dabf7; }
+    #savebar #save-state.error .dot { background: #ff6b6b; }
+    #savebar button#save-now {
+      font: inherit; font-size: 12px; line-height: 1; cursor: pointer;
+      background: #1971c2; color: #fff; border: 1px solid #1971c2; border-radius: 8px;
+      padding: 8px 12px; box-shadow: 0 1px 4px rgba(0,0,0,.12);
+    }
+    #savebar button#save-now:hover { background: #1864ab; }
     #status.stale .dot { background: #ff922b; }
     #status.error .dot { background: #ff6b6b; }
     #boot { position: fixed; inset: 0; display: grid; place-items: center; color: #868e96; }
@@ -32,21 +54,64 @@
       text-decoration: none; color: #1971c2; font-weight: 600;
     }
     #index li a:hover { background: #f1f3f5; }
-    #index button.del {
-      font: inherit; cursor: pointer; color: #e03131; background: #fff;
-      border: 1px solid #ffc9c9; border-radius: 10px; padding: 0 14px;
+    #index button.act {
+      font: inherit; cursor: pointer; color: #495057; background: #fff;
+      border: 1px solid #dee2e6; border-radius: 10px; padding: 0 14px; line-height: 1;
     }
+    #index button.act:hover { background: #f1f3f5; }
+    #index button.del { color: #e03131; border-color: #ffc9c9; }
     #index button.del:hover { background: #fff5f5; }
     #index p.empty { color: #adb5bd; }
-    /* board-view chrome: back to list + delete the current board */
-    #boardbar { position: fixed; top: 12px; left: 56px; z-index: 9; display: none; gap: 6px; align-items: center; }
+    /* search/filter box above the boards list */
+    #index .search { position: relative; margin: 0 0 16px; }
+    #index .search input {
+      width: 100%; box-sizing: border-box; font: inherit; padding: 10px 36px 10px 14px;
+      border: 1px solid #dee2e6; border-radius: 10px; color: #1e1e1e; outline: none;
+    }
+    #index .search input:focus { border-color: #74c0fc; box-shadow: 0 0 0 3px rgba(116,192,252,.25); }
+    #index .search button.clear {
+      position: absolute; top: 50%; right: 8px; transform: translateY(-50%);
+      font: inherit; line-height: 1; cursor: pointer; color: #868e96; background: transparent;
+      border: none; padding: 4px 8px; border-radius: 8px;
+    }
+    #index .search button.clear:hover { background: #f1f3f5; color: #495057; }
+    #index p.noresults { color: #adb5bd; }
+    /* board-view chrome: a spaced action pad (nav group | board actions) that
+       clears Excalidraw's top-left hamburger. */
+    #boardbar {
+      position: fixed; top: 12px; left: 56px; z-index: 9; display: none;
+      gap: 8px; align-items: center; padding: 6px;
+      background: #fff; border: 1px solid #e9ecef; border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(0,0,0,.1);
+    }
+    #boardbar .group { display: flex; gap: 4px; align-items: center; }
+    #boardbar .divider { width: 1px; align-self: stretch; margin: 2px 2px; background: #e9ecef; }
     #boardbar a, #boardbar button {
       font: inherit; font-size: 12px; line-height: 1; cursor: pointer; text-decoration: none;
-      background: #fff; color: #1971c2; border: 1px solid #dee2e6; border-radius: 8px;
-      padding: 7px 10px; box-shadow: 0 1px 4px rgba(0,0,0,.08);
+      background: #fff; color: #495057; border: 1px solid transparent; border-radius: 8px;
+      padding: 7px 10px; display: inline-flex; align-items: center; gap: 6px;
     }
-    #boardbar button.del { color: #e03131; border-color: #ffc9c9; }
     #boardbar a:hover, #boardbar button:hover { background: #f1f3f5; }
+    #boardbar .ic { font-size: 13px; line-height: 1; }
+    #boardbar button.del { color: #e03131; }
+    #boardbar button.del:hover { background: #fff5f5; }
+    /* styled confirm/destructive modal (replaces window.confirm) */
+    #modal { position: fixed; inset: 0; z-index: 20; display: none; place-items: center;
+      background: rgba(30,30,30,.4); }
+    #modal.open { display: grid; }
+    #modal .card {
+      background: #fff; color: #1e1e1e; max-width: 380px; margin: 0 24px; padding: 22px 24px;
+      border-radius: 14px; box-shadow: 0 12px 40px rgba(0,0,0,.25);
+    }
+    #modal .card p { margin: 0 0 20px; font-size: 15px; line-height: 1.45; }
+    #modal .card .row { display: flex; justify-content: flex-end; gap: 10px; }
+    #modal .card button {
+      font: inherit; cursor: pointer; border-radius: 9px; padding: 9px 16px;
+      border: 1px solid #dee2e6; background: #fff; color: #495057;
+    }
+    #modal .card button.cancel:hover { background: #f1f3f5; }
+    #modal .card button.danger { background: #e03131; border-color: #e03131; color: #fff; font-weight: 600; }
+    #modal .card button.danger:hover { background: #c92a2a; }
     /* 404 overlay: shown in board mode when the slug truly isn't on this server */
     #notfound {
       position: fixed; inset: 0; z-index: 8; overflow: auto; background: #fff;
@@ -81,18 +146,93 @@
   <div id="app"></div>
   <div id="index" hidden></div>
   <div id="notfound" hidden></div>
-  <div id="boardbar"><a href="/">← boards</a><button class="del" type="button">Delete</button></div>
+  <div id="boardbar">
+    <div class="group">
+      <a href="/" title="Back to all boards"><span class="ic">←</span> boards</a>
+    </div>
+    <div class="divider"></div>
+    <div class="group">
+      <button class="rename" type="button" title="Rename this board"><span class="ic">✎</span> Rename</button>
+      <button class="edit" type="button" title="Toggle edit mode"><span class="ic">✏️</span> Edit</button>
+      <button class="del" type="button" title="Delete this board"><span class="ic">🗑</span> Delete</button>
+    </div>
+  </div>
+  <div id="modal"><div class="card"><p id="modal-text"></p><div class="row"><button class="cancel" type="button">Cancel</button><button class="danger" type="button">Delete</button></div></div></div>
   <div id="status" hidden><span class="dot"></span><span id="status-text">starting…</span></div>
+  <div id="savebar"><span id="save-state"><span class="dot"></span><span id="save-state-text">saved</span></span><button id="save-now" type="button">Save</button></div>
 
   <script type="module">
     import React from 'https://esm.sh/react@18.3.1';
     import { createRoot } from 'https://esm.sh/react-dom@18.3.1/client';
-    import { Excalidraw } from 'https://esm.sh/@excalidraw/excalidraw@0.18.0?deps=react@18.3.1,react-dom@18.3.1';
+    import { Excalidraw, restoreElements } from 'https://esm.sh/@excalidraw/excalidraw@0.18.0?deps=react@18.3.1,react-dom@18.3.1';
 
     const params = new URLSearchParams(location.search);
     const slug = params.get('d');
     const editMode = params.get('edit') === '1';
     const boot = document.getElementById('boot');
+
+    // Same slug rule the server enforces (lib/serve.mjs SLUG). Keep these in sync.
+    const SLUG_RE = /^[a-z0-9][a-z0-9_-]*$/i;
+
+    // ---- shared styled confirm dialog (replaces window.confirm for deletes) ----
+    // One modal, reused by both the index per-row delete and the board-view delete.
+    const modal = document.getElementById('modal');
+    const modalText = document.getElementById('modal-text');
+    const modalCancel = modal.querySelector('button.cancel');
+    const modalDanger = modal.querySelector('button.danger');
+    let modalResolve = null;
+    const closeModal = (val) => {
+      modal.classList.remove('open');
+      const r = modalResolve;
+      modalResolve = null;
+      if (r) r(val);
+    };
+    modalCancel.addEventListener('click', () => closeModal(false));
+    modalDanger.addEventListener('click', () => closeModal(true));
+    modal.addEventListener('click', (ev) => { if (ev.target === modal) closeModal(false); });
+    document.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Escape' && modal.classList.contains('open')) closeModal(false);
+    });
+    // Resolves true if the user confirms the destructive action.
+    const confirmDelete = (s) =>
+      new Promise((resolve) => {
+        modalText.textContent = `Delete board "${s}"? This removes its spec and render.`;
+        modalResolve = resolve;
+        modal.classList.add('open');
+        modalDanger.focus();
+      });
+
+    // ---- shared rename flow: prompt for a new slug, validate, POST /api/rename.
+    // Returns the new slug on success, or null if cancelled/failed (it alerts on
+    // a real failure). `existing` is the list of slugs to check for duplicates.
+    async function renameBoard(from, existing) {
+      const known = new Set(existing || []);
+      let to = (window.prompt(`Rename board "${from}" to:`, from) || '').trim();
+      if (!to || to === from) return null; // cancelled or unchanged
+      if (!SLUG_RE.test(to)) {
+        alert('Invalid name. Use letters, digits, dashes or underscores (must start with a letter or digit).');
+        return null;
+      }
+      if (known.has(to)) {
+        alert(`A board named "${to}" already exists.`);
+        return null;
+      }
+      try {
+        const res = await fetch('/api/rename', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ from, to }),
+        });
+        if (!res.ok) {
+          alert(res.status === 409 ? `A board named "${to}" already exists.` : `Rename failed (${res.status}).`);
+          return null;
+        }
+        return to;
+      } catch {
+        alert('Rename failed: could not reach the server.');
+        return null;
+      }
+    }
 
     // ---- index mode: no ?d= -> list all live boards ----
     if (!slug) {
@@ -101,28 +241,88 @@
       document.getElementById('app').style.display = 'none';
       const index = document.getElementById('index');
       index.hidden = false;
-      async function renderIndex() {
-        let items = [];
-        try { items = await (await fetch('/api/diagrams', { cache: 'no-store' })).json(); } catch {}
+      const escapeHtml = (s) =>
+        String(s).replace(/[&<>"']/g, (c) =>
+          ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+
+      let allSlugs = []; // last-known full list (for duplicate checks on rename)
+      let query = '';    // the typed filter; preserved across auto-refreshes
+
+      // Re-paint just the list portion, applying the current case-insensitive
+      // filter. Kept separate from the chrome so re-rendering never disturbs the
+      // search input (and the query the user has typed).
+      function renderList() {
+        const listEl = document.getElementById('board-list');
+        if (!listEl) return;
+        const q = query.trim().toLowerCase();
+        const items = q ? allSlugs.filter((s) => s.toLowerCase().includes(q)) : allSlugs;
+        if (!allSlugs.length) {
+          listEl.innerHTML = '<p class="empty">No diagrams yet. Ask your agent to draw something.</p>';
+          return;
+        }
+        listEl.innerHTML = items.length
+          ? '<ul>' + items.map((s) =>
+              `<li><a href="/?d=${encodeURIComponent(s)}">${escapeHtml(s)}</a>` +
+              `<button class="act rename" type="button" title="Rename" data-slug="${encodeURIComponent(s)}">✎ Rename</button>` +
+              `<button class="act del" type="button" title="Delete" data-slug="${encodeURIComponent(s)}">Delete</button></li>`).join('') + '</ul>'
+          : `<p class="noresults">No boards match "${escapeHtml(query.trim())}".</p>`;
+      }
+
+      // Build the static chrome (heading + search box) once; the list lives in a
+      // child container that we repaint on every refresh.
+      function renderChrome() {
         index.innerHTML =
           '<h1>exgram</h1><p>Live boards on this server. Open one, or ask your agent to draw a new one.</p>' +
-          (items.length
-            ? '<ul>' + items.map((s) =>
-                `<li><a href="/?d=${encodeURIComponent(s)}">${s}</a>` +
-                `<button class="del" type="button" data-slug="${encodeURIComponent(s)}">Delete</button></li>`).join('') + '</ul>'
-            : '<p class="empty">No diagrams yet. Ask your agent to draw something.</p>');
+          '<div class="search">' +
+            '<input id="board-search" type="text" placeholder="Filter boards…" autocomplete="off" spellcheck="false" />' +
+            '<button class="clear" type="button" title="Clear filter" hidden>×</button>' +
+          '</div>' +
+          '<div id="board-list"></div>';
+        const input = document.getElementById('board-search');
+        const clear = index.querySelector('.search button.clear');
+        input.value = query;
+        clear.hidden = !query;
+        input.addEventListener('input', () => {
+          query = input.value;
+          clear.hidden = !query;
+          renderList();
+        });
+        clear.addEventListener('click', () => {
+          query = '';
+          input.value = '';
+          clear.hidden = true;
+          input.focus();
+          renderList();
+        });
+        input.focus(); // autofocus on load
       }
-      // delete a board from the list (event-delegated so it survives re-renders)
+
+      async function refresh() {
+        try { allSlugs = await (await fetch('/api/diagrams', { cache: 'no-store' })).json(); } catch {}
+        renderList();
+      }
+
+      // Per-row delete (styled confirm) and rename, event-delegated so they
+      // survive the periodic re-render.
       index.addEventListener('click', async (ev) => {
-        const btn = ev.target.closest('button.del');
-        if (!btn) return;
-        const s = decodeURIComponent(btn.dataset.slug);
-        if (!confirm(`Delete board "${s}"? This removes its files.`)) return;
+        const renameBtn = ev.target.closest('button.rename');
+        if (renameBtn) {
+          const s = decodeURIComponent(renameBtn.dataset.slug);
+          const to = await renameBoard(s, allSlugs);
+          if (to) await refresh();
+          return;
+        }
+        const delBtn = ev.target.closest('button.del');
+        if (!delBtn) return;
+        const s = decodeURIComponent(delBtn.dataset.slug);
+        if (!(await confirmDelete(s))) return;
         try { await fetch(`/scene/${encodeURIComponent(s)}.excalidraw`, { method: 'DELETE' }); } catch {}
-        renderIndex();
+        await refresh();
       });
-      renderIndex();
-      setInterval(renderIndex, 2000); // pick up newly created boards
+
+      renderChrome();
+      refresh();
+      setInterval(refresh, 2000); // pick up newly created boards
     } else {
       // ---- board mode: render and watch one scene ----
       const statusEl = document.getElementById('status');
@@ -131,11 +331,34 @@
       document.title = `exgram — ${slug}`;
       let api = null, lastText = '', firstLoaded = false;
 
-      // back-to-list + delete-this-board chrome
+      // action pad: nav group (back to boards) | board actions (rename/edit/delete)
       const boardbar = document.getElementById('boardbar');
       boardbar.style.display = 'flex';
+
+      // Edit toggles ?edit=1 via the URL (a reload, matching the URL-driven
+      // design). Label reflects the current state.
+      const editBtn = boardbar.querySelector('button.edit');
+      editBtn.innerHTML = editMode
+        ? '<span class="ic">🔒</span> Lock'
+        : '<span class="ic">✏️</span> Edit';
+      editBtn.title = editMode ? 'Exit edit mode (view only)' : 'Edit this board';
+      editBtn.addEventListener('click', () => {
+        const next = new URLSearchParams(location.search);
+        if (editMode) next.delete('edit');
+        else next.set('edit', '1');
+        location.search = next.toString();
+      });
+
+      // Rename the current board, then navigate to its new URL.
+      boardbar.querySelector('button.rename').addEventListener('click', async () => {
+        let existing = [];
+        try { existing = await (await fetch('/api/diagrams', { cache: 'no-store' })).json(); } catch {}
+        const to = await renameBoard(slug, existing);
+        if (to) location.href = `/?d=${encodeURIComponent(to)}`;
+      });
+
       boardbar.querySelector('button.del').addEventListener('click', async () => {
-        if (!confirm(`Delete board "${slug}"? This removes its files.`)) return;
+        if (!(await confirmDelete(slug))) return;
         try { await fetch(`/scene/${encodeURIComponent(slug)}.excalidraw`, { method: 'DELETE' }); } catch {}
         location.href = '/';
       });
@@ -202,11 +425,91 @@
         }
       }
 
+      // ---- persist hand edits (edit mode only) ----------------------------
+      // In ?edit=1 the local canvas becomes the source of truth: Excalidraw's
+      // onChange debounces a save (PUT the current scene back to the server) and
+      // the poll loop below stops re-applying remote updates so it can't clobber
+      // in-progress edits. The "Save" button forces an immediate flush.
+      const savebar = document.getElementById('savebar');
+      const saveState = document.getElementById('save-state');
+      const saveStateText = document.getElementById('save-state-text');
+      const setSaveState = (kind, text) => {
+        // kind: '' (saved), 'dirty', 'saving', 'error'
+        saveState.className = kind;
+        saveStateText.textContent = text;
+      };
+
+      // Serialize the live canvas to the same shape lib/build.mjs writes, so a
+      // saved scene is interchangeable with a built one.
+      const serializeScene = () => JSON.stringify({
+        type: 'excalidraw',
+        version: 2,
+        source: location.origin,
+        elements: api.getSceneElements(),
+        appState: { viewBackgroundColor: api.getAppState().viewBackgroundColor || '#ffffff' },
+        files: api.getFiles(),
+      });
+
+      // Serialized snapshot of what's currently on disk for this board, so we can
+      // skip saving when nothing actually changed. onChange fires on pure pan/zoom
+      // too (which don't alter the serialized scene), so this elides no-op writes.
+      let lastSavedScene = null;
+      let saveInFlight = false, savePending = false;
+      async function flushSave() {
+        if (!api) return;
+        if (saveInFlight) { savePending = true; return; } // coalesce overlapping saves
+        const body = serializeScene();
+        if (body === lastSavedScene) { // nothing changed (e.g. just a pan/zoom)
+          setSaveState('', lastSavedScene ? `saved · ${new Date().toLocaleTimeString()}` : 'saved');
+          return;
+        }
+        saveInFlight = true;
+        setSaveState('saving', 'saving…');
+        try {
+          const res = await fetch(`/scene/${encodeURIComponent(slug)}.excalidraw`, {
+            method: 'PUT', cache: 'no-store',
+            headers: { 'Content-Type': 'application/json' },
+            body,
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          lastSavedScene = body; // remember what we just persisted
+          // Mirror what we just saved so the poll loop's diff doesn't treat our
+          // own write as a remote change to re-apply.
+          lastText = await (await fetch(`/scene/${encodeURIComponent(slug)}.excalidraw?t=${Date.now()}`, { cache: 'no-store' })).text();
+          setSaveState('', `saved · ${new Date().toLocaleTimeString()}`);
+        } catch (err) {
+          setSaveState('error', 'save failed · retrying…');
+        } finally {
+          saveInFlight = false;
+          if (savePending) { savePending = false; flushSave(); } // a change landed mid-save
+        }
+      }
+
+      const SAVE_DEBOUNCE_MS = 800;
+      let saveTimer = null;
+      const scheduleSave = () => {
+        setSaveState('dirty', 'unsaved…');
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(flushSave, SAVE_DEBOUNCE_MS);
+      };
+
+      if (editMode) {
+        savebar.style.display = 'flex';
+        document.getElementById('save-now').addEventListener('click', () => {
+          clearTimeout(saveTimer);
+          flushSave();
+        });
+      }
+
       function App() {
         return React.createElement(Excalidraw, {
           excalidrawAPI: (a) => { api = a; },
           theme: 'light',
           viewModeEnabled: !editMode, // read-only by default; ?edit=1 unlocks editing
+          // Persist hand edits while editing. onChange fires a lot (incl. pure
+          // pan/zoom), but firstLoaded gates it so the initial scene load and any
+          // pre-load noise don't trigger a save before the user actually edits.
+          onChange: editMode ? () => { if (firstLoaded) scheduleSave(); } : undefined,
           initialData: { appState: { viewBackgroundColor: '#ffffff' } },
           UIOptions: { canvasActions: { loadScene: true, export: { saveFileToDisk: true }, saveToActiveFile: false } },
         });
@@ -236,20 +539,44 @@
             const text = await res.text();
             // Only consume the text once the canvas API is ready, otherwise we'd
             // mark it "seen" before rendering and never draw it.
-            if (api && text && text !== lastText) {
+            // In edit mode, the local canvas is the source of truth once it has
+            // loaded once: applying remote updates would clobber in-progress hand
+            // edits (and fight the debounced save). So only auto-apply remote
+            // scenes in read-only mode, or for the very first load in edit mode.
+            const mayApply = !editMode || !firstLoaded;
+            if (api && text && text !== lastText && mayApply) {
               lastText = text;
               const scene = JSON.parse(text);
               if (Array.isArray(scene.elements)) {
-                api.updateScene({ elements: scene.elements }); // omit appState -> keep zoom/pan
+                // #19: restoreElements backfills any missing render fields (ids,
+                // points, lineHeight, ...) so an incomplete element can't crash
+                // hit-testing and blank the canvas. refreshDimensions:false keeps
+                // authored text/box sizes. omit appState -> keep zoom/pan.
+                const restored = restoreElements(scene.elements, null, { refreshDimensions: false });
+                // #24: register embedded image bytes (node icons) BEFORE updateScene,
+                // otherwise image elements reference a fileId Excalidraw doesn't have
+                // yet and render as a broken-image placeholder. addFiles is idempotent.
+                if (scene.files && typeof scene.files === 'object') {
+                  const files = Object.values(scene.files).filter((f) => f && f.id && f.dataURL);
+                  if (files.length) { try { api.addFiles(files); } catch {} }
+                }
+                api.updateScene({ elements: restored });
                 if (!firstLoaded) {
                   firstLoaded = true;
                   setTimeout(() => {
-                    try { api.scrollToContent(scene.elements, { fitToContent: true, animate: false, viewportZoomFactor: 0.85 }); } catch {}
+                    try { api.scrollToContent(restored, { fitToContent: true, animate: false, viewportZoomFactor: 0.85 }); } catch {}
+                    // Seed the saved-scene snapshot from the just-loaded board so the
+                    // first onChange (and any pan/zoom) doesn't trigger a no-op write.
+                    if (editMode) { try { lastSavedScene = serializeScene(); } catch {} }
                   }, 60);
                 }
               }
             }
-            setStatus('ok', `exgram • ${slug} • live · ${new Date().toLocaleTimeString()}`);
+            // Status reflects mode: "live" follows the server; "editing" means
+            // local edits win and are being persisted on change.
+            setStatus('ok', editMode
+              ? `exgram • ${slug} • editing · ${new Date().toLocaleTimeString()}`
+              : `exgram • ${slug} • live · ${new Date().toLocaleTimeString()}`);
           }
         } catch (err) {
           pollDelay = Math.min(pollDelay * 2, POLL_MAX); // server down -> slow down

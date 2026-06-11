@@ -105,6 +105,46 @@ test('rawElements pass through with bookkeeping stamped', () => {
   assert.equal(raw.isDeleted, false);
 });
 
+test('rawElements get a stable id and full render defaults (#19)', () => {
+  const scene = buildScene({
+    rawElements: [
+      { type: 'rectangle', x: 0, y: 0, width: 120, height: 60, backgroundColor: '#a5d8ff', strokeColor: '#1971c2', roundness: { type: 3 } },
+      { type: 'text', x: 10, y: 20, width: 100, height: 20, text: 'hello', fontSize: 16, fontFamily: 1 },
+      { type: 'arrow', x: 0, y: 100, width: 200, height: 0 },
+    ],
+  });
+  // every produced element has a non-empty string id + the base render fields
+  for (const el of scene.elements) {
+    assert.equal(typeof el.id, 'string');
+    assert.ok(el.id.length > 0, 'raw element has a non-empty id');
+    for (const f of REQUIRED) assert.ok(f in el, `raw ${el.type} missing "${f}"`);
+    assert.equal(typeof el.seed, 'number', 'seed derived from id');
+  }
+  const rect = scene.elements.find((e) => e.type === 'rectangle');
+  assert.equal(rect.fillStyle, 'solid');
+  assert.equal(rect.strokeWidth, 2);
+  assert.deepEqual(rect.roundness, { type: 3 }, 'authored roundness wins');
+  assert.equal(rect.backgroundColor, '#a5d8ff', 'authored fill wins');
+
+  const txt = scene.elements.find((e) => e.type === 'text');
+  assert.equal(txt.text, 'hello');
+  assert.equal(txt.originalText, 'hello', 'text gets originalText');
+  assert.equal(txt.lineHeight, 1.25, 'text gets lineHeight');
+  assert.equal(txt.autoResize, true, 'unbound text auto-resizes');
+
+  const arr = scene.elements.find((e) => e.type === 'arrow');
+  assert.ok(Array.isArray(arr.points) && arr.points.length === 2, 'arrow gets default points');
+  assert.equal(arr.elbowed, false, 'arrow gets elbowed default');
+});
+
+test('rawElements ids are deterministic and authored ids win (#19)', () => {
+  const spec = { rawElements: [{ type: 'rectangle', x: 0, y: 0, width: 10, height: 10 }, { id: 'mine', type: 'text', x: 0, y: 0, width: 10, height: 10, text: 'x' }] };
+  const a = buildScene(spec);
+  const b = buildScene(spec);
+  assert.deepEqual(a.elements.map((e) => e.id), b.elements.map((e) => e.id), 'raw ids stable across rebuilds');
+  assert.ok(a.elements.some((e) => e.id === 'mine'), 'authored id is preserved');
+});
+
 test('handles cycles without hanging', () => {
   const scene = buildScene({
     nodes: [{ id: 'a', label: 'A' }, { id: 'b', label: 'B' }],
@@ -216,6 +256,59 @@ test('source-less node is ranked by its successor, not pinned to column 0 (#6)',
   });
   const x = (id) => scene.elements.find((e) => e.id === `n.${id}`).x;
   assert.ok(x('orphan') > x('root'), 'orphan is pulled right toward the node it feeds');
+});
+
+test('a node with a generic icon emits one image element + a matching file (#24)', () => {
+  const scene = buildScene({ nodes: [{ id: 'db', label: 'DB', icon: 'database' }], edges: [] });
+  const images = scene.elements.filter((e) => e.type === 'image');
+  assert.equal(images.length, 1, 'exactly one image element');
+  const img = images[0];
+  assert.equal(img.status, 'saved');
+  assert.deepEqual(img.scale, [1, 1]);
+  assert.ok(img.fileId, 'image references a fileId');
+  const file = scene.files[img.fileId];
+  assert.ok(file, 'scene.files has the matching entry');
+  assert.equal(file.id, img.fileId);
+  assert.equal(file.mimeType, 'image/svg+xml');
+  assert.match(file.dataURL, /^data:image\/svg\+xml;base64,/, 'dataURL is a base64 data URL');
+  // icon sits inside the node box
+  const rect = scene.elements.find((e) => e.id === 'n.db' && e.type === 'rectangle');
+  assert.ok(img.x >= rect.x && img.x + img.width <= rect.x + rect.width, 'icon is inside the box');
+});
+
+test('aliases and case-insensitivity resolve (#24)', () => {
+  const scene = buildScene({ nodes: [{ id: 'b', label: 'Bus', icon: 'BUS' }], edges: [] });
+  assert.equal(scene.elements.filter((e) => e.type === 'image').length, 1, 'bus alias -> queue icon');
+});
+
+test('a data: URL icon is embedded verbatim (#24)', () => {
+  const dataURL = 'data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=';
+  const scene = buildScene({ nodes: [{ id: 'x', label: 'X', icon: dataURL }], edges: [] });
+  const img = scene.elements.find((e) => e.type === 'image');
+  assert.ok(img, 'image element produced for data: URL');
+  assert.equal(scene.files[img.fileId].dataURL, dataURL, 'data URL passed through as-is');
+});
+
+test('an unresolvable icon falls back to normal rendering + warns, no throw (#24)', () => {
+  let scene;
+  assert.doesNotThrow(() => {
+    scene = buildScene({ nodes: [{ id: 'db', label: 'DB', role: 'datastore', icon: 'aws:rds' }], edges: [] });
+  });
+  assert.equal(scene.elements.filter((e) => e.type === 'image').length, 0, 'no image element');
+  assert.deepEqual(scene.files, {}, 'no files entry');
+  // node still renders with its role color
+  const rect = scene.elements.find((e) => e.id === 'n.db');
+  assert.equal(rect.backgroundColor, PALETTE.datastore.bg, 'role color retained');
+  assert.ok(scene._warnings.some((w) => w.includes('aws:rds') && w.includes('not resolvable')), 'warning emitted');
+});
+
+test('icon fileId is deterministic across rebuilds (#24)', () => {
+  const spec = { nodes: [{ id: 'q', label: 'Q', icon: 'queue' }], edges: [] };
+  const a = buildScene(spec);
+  const b = buildScene(spec);
+  const fa = a.elements.find((e) => e.type === 'image').fileId;
+  const fb = b.elements.find((e) => e.type === 'image').fileId;
+  assert.equal(fa, fb, 'same fileId on rebuild');
 });
 
 test('layout linter flags overlapping nodes (#6)', () => {
