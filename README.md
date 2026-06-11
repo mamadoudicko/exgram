@@ -1,6 +1,9 @@
 <div align="center">
 
-<img src="./assets/wordmark.svg" alt="exgram" width="380" />
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./assets/wordmark-dark.svg" />
+  <img src="./assets/wordmark.svg" alt="exgram" width="380" />
+</picture>
 
 ### Your agent's diagrams, live and editable.
 

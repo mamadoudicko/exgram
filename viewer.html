@@ -506,9 +506,18 @@
         const inField = active && (tag === 'INPUT' || tag === 'TEXTAREA' || active.isContentEditable);
         if (inField) return;
         if (ev.key.length !== 1 || ev.ctrlKey || ev.metaKey || ev.altKey) return;
-        // Focus without preventing default so the browser types the char into the
-        // now-focused input; its existing 'input' handler then updates the filter.
+        // Take ownership of the first character. Focusing on keydown WITHOUT
+        // preventDefault only re-routes the keystroke in Chromium; Firefox/Safari
+        // resolve the key's text-insertion target before focus moves, dropping the
+        // first letter. So we preventDefault, focus, and append the char ourselves,
+        // mirroring the 'input' handler (query + value + clear button + re-render).
+        ev.preventDefault();
         input.focus();
+        query += ev.key;
+        input.value = query;
+        const clear = index.querySelector('.search button.clear');
+        if (clear) clear.hidden = !query;
+        renderList();
       });
 
       renderChrome();
