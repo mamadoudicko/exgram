@@ -398,7 +398,7 @@
       // list lives in a child container that we repaint on every refresh.
       function renderChrome() {
         index.innerHTML =
-          '<h1>exgram</h1><p>Live boards on this server. Open one, or ask your agent to draw a new one.</p>' +
+          '<h1>exgram</h1><p>Your agent\'s diagrams, live and editable — open one or ask for a new one.</p>' +
           '<div class="search">' +
             '<input id="board-search" type="text" placeholder="Filter boards…" autocomplete="off" spellcheck="false" />' +
             '<button class="clear" type="button" title="Clear filter" hidden>×</button>' +
@@ -474,6 +474,33 @@
         if (!(await confirmDelete(s))) return;
         try { await fetch(`/scene/${encodeURIComponent(s)}.excalidraw`, { method: 'DELETE' }); } catch {}
         await refresh();
+      });
+
+      // Type-ahead: start typing anywhere and the keystroke lands in the search
+      // box. Bound once on document; we look up the (possibly re-created) input by
+      // id at handle time so it keeps working across the 2s auto-refresh.
+      document.addEventListener('keydown', (ev) => {
+        const input = document.getElementById('board-search');
+        if (!input) return;
+        const active = document.activeElement;
+        // Escape while focused in the search clears it (mirrors the clear button).
+        if (ev.key === 'Escape' && active === input) {
+          query = '';
+          input.value = '';
+          const clear = index.querySelector('.search button.clear');
+          if (clear) clear.hidden = true;
+          renderList();
+          input.blur();
+          return;
+        }
+        // Ignore when already typing in a field, or for modifier/non-printable keys.
+        const tag = active && active.tagName;
+        const inField = active && (tag === 'INPUT' || tag === 'TEXTAREA' || active.isContentEditable);
+        if (inField) return;
+        if (ev.key.length !== 1 || ev.ctrlKey || ev.metaKey || ev.altKey) return;
+        // Focus without preventing default so the browser types the char into the
+        // now-focused input; its existing 'input' handler then updates the filter.
+        input.focus();
       });
 
       renderChrome();
