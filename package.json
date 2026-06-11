@@ -39,6 +39,7 @@
     "lib/",
     "references/",
     "styles/",
+    "assets/",
     "viewer.html",
     "docs/"
   ]

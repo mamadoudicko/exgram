@@ -6,7 +6,7 @@
   <title>exgram — live diagram</title>
   <!-- Excalidraw styles -->
   <link rel="stylesheet" href="https://esm.sh/@excalidraw/excalidraw@0.18.0/dist/prod/index.css" />
-  <link rel="icon" href="data:," />
+  <link rel="icon" type="image/svg+xml" href="/assets/wordmark.svg" />
   <style>
     html, body, #app { margin: 0; height: 100%; width: 100%; }
     body { font-family: ui-sans-serif, system-ui, sans-serif; }
@@ -46,6 +46,9 @@
     /* index landing (shown when no ?d= slug is given) */
     #index { max-width: 640px; margin: 64px auto; padding: 0 24px; color: #1e1e1e; }
     #index h1 { font-size: 22px; margin: 0 0 4px; }
+    /* hand-drawn wordmark (dogfooded: drawn by exgram, exported to SVG) */
+    #index h1.brand { margin: 0 0 6px; line-height: 0; }
+    #index h1.brand img { height: 46px; width: auto; display: block; }
     #index p { color: #868e96; margin: 0 0 24px; }
     #index ul { list-style: none; padding: 0; margin: 0; }
     #index li { margin: 0 0 8px; display: flex; gap: 8px; align-items: stretch; }
@@ -106,6 +109,9 @@
       box-shadow: 0 2px 10px rgba(0,0,0,.1);
     }
     #boardbar .group { display: flex; gap: 4px; align-items: center; }
+    #boardbar a.brand { padding: 0 4px 0 2px; line-height: 0; }
+    #boardbar a.brand img { height: 20px; width: auto; display: block; opacity: .9; }
+    #boardbar a.brand:hover { background: transparent; }
     #boardbar .divider { width: 1px; align-self: stretch; margin: 2px 2px; background: #e9ecef; }
     #boardbar a, #boardbar button {
       font: inherit; font-size: 12px; line-height: 1; cursor: pointer; text-decoration: none;
@@ -168,6 +174,7 @@
   <div id="index" hidden></div>
   <div id="notfound" hidden></div>
   <div id="boardbar">
+    <a class="brand" href="/" title="exgram — all boards"><img src="/assets/wordmark.svg" alt="exgram" /></a>
     <div class="group">
       <a href="/" title="Back to all boards"><span class="ic">←</span> boards</a>
     </div>
@@ -398,7 +405,8 @@
       // list lives in a child container that we repaint on every refresh.
       function renderChrome() {
         index.innerHTML =
-          '<h1>exgram</h1><p>Your agent\'s diagrams, live and editable — open one or ask for a new one.</p>' +
+          '<h1 class="brand"><img src="/assets/wordmark.svg" alt="exgram" width="200" /></h1>' +
+          '<p>Your agent\'s diagrams, live and editable — open one or ask for a new one.</p>' +
           '<div class="search">' +
             '<input id="board-search" type="text" placeholder="Filter boards…" autocomplete="off" spellcheck="false" />' +
             '<button class="clear" type="button" title="Clear filter" hidden>×</button>' +
