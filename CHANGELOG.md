@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-06-11
+
+### Added
+- **Per-board dates in the boards list** (#30): `GET /api/diagrams` now returns
+  `[{ slug, created, updated }]` (timestamps from `fs.statSync`, zero deps, with a
+  birthtime→mtime fallback and a `created ≤ updated` clamp; resilient to stat failures
+  and render-only boards). Each row shows a muted `created … · edited …` line with
+  relative times (`Intl.RelativeTimeFormat`) and absolute short dates past ~7 days; each
+  is a `<time datetime>` with a full-timestamp tooltip.
+- **Sort the boards list** (#31): Last edited (default, desc) / Created / Name, toggling
+  asc/desc, persisted in `localStorage`, combined with the search filter. Null timestamps
+  sort last; Name sort is natural + case-insensitive.
+- **Type-ahead search** (#34): typing any printable character on the boards index focuses
+  the filter box and captures that first keystroke (cross-browser: the character is taken
+  over explicitly so Firefox/Safari don't drop it). Ignores modifier/navigation keys and
+  active text fields; Esc clears.
+- **Handwritten `exgram` wordmark** (#32), drawn BY exgram itself: `assets/wordmark.exgram.json`
+  is a spec built by `lib/build.mjs` and exported to a self-contained `assets/wordmark.svg`
+  (hand font embedded as base64 — fully offline). Shown on the boards index header, in each
+  board's action bar, as the favicon, and leading the README (with a light/dark `<picture>`
+  variant). A read-only `GET /assets/<file>` route serves it.
+
+### Changed
+- **Boards-index tagline** (#33): now "Your agent's diagrams, live and editable — open one
+  or ask for a new one."
+
 ## [1.3.0] - 2026-06-11
 
 ### Added
