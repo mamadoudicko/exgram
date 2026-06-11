@@ -18,6 +18,28 @@
       box-shadow: 0 2px 8px rgba(0,0,0,.2);
     }
     #status .dot { width: 8px; height: 8px; border-radius: 50%; background: #51cf66; }
+    /* save affordance (board edit mode only): explicit save + saved/dirty pill.
+       Bottom-RIGHT so it never collides with the top-left chrome (#boardbar) the
+       other branch is reworking, nor with the bottom-left #status pill. */
+    #savebar {
+      position: fixed; bottom: 14px; right: 14px; z-index: 9; display: none;
+      gap: 8px; align-items: center; user-select: none;
+    }
+    #savebar #save-state {
+      font-size: 12px; color: #fff; background: rgba(30,30,30,.85);
+      padding: 6px 10px; border-radius: 999px; display: flex; gap: 8px; align-items: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,.2);
+    }
+    #savebar #save-state .dot { width: 8px; height: 8px; border-radius: 50%; background: #51cf66; }
+    #savebar #save-state.dirty .dot { background: #ffd43b; }
+    #savebar #save-state.saving .dot { background: #4dabf7; }
+    #savebar #save-state.error .dot { background: #ff6b6b; }
+    #savebar button#save-now {
+      font: inherit; font-size: 12px; line-height: 1; cursor: pointer;
+      background: #1971c2; color: #fff; border: 1px solid #1971c2; border-radius: 8px;
+      padding: 8px 12px; box-shadow: 0 1px 4px rgba(0,0,0,.12);
+    }
+    #savebar button#save-now:hover { background: #1864ab; }
     #status.stale .dot { background: #ff922b; }
     #status.error .dot { background: #ff6b6b; }
     #boot { position: fixed; inset: 0; display: grid; place-items: center; color: #868e96; }
@@ -137,6 +159,7 @@
   </div>
   <div id="modal"><div class="card"><p id="modal-text"></p><div class="row"><button class="cancel" type="button">Cancel</button><button class="danger" type="button">Delete</button></div></div></div>
   <div id="status" hidden><span class="dot"></span><span id="status-text">starting…</span></div>
+  <div id="savebar"><span id="save-state"><span class="dot"></span><span id="save-state-text">saved</span></span><button id="save-now" type="button">Save</button></div>
 
   <script type="module">
     import React from 'https://esm.sh/react@18.3.1';
@@ -402,11 +425,81 @@
         }
       }
 
+      // ---- persist hand edits (edit mode only) ----------------------------
+      // In ?edit=1 the local canvas becomes the source of truth: Excalidraw's
+      // onChange debounces a save (PUT the current scene back to the server) and
+      // the poll loop below stops re-applying remote updates so it can't clobber
+      // in-progress edits. The "Save" button forces an immediate flush.
+      const savebar = document.getElementById('savebar');
+      const saveState = document.getElementById('save-state');
+      const saveStateText = document.getElementById('save-state-text');
+      const setSaveState = (kind, text) => {
+        // kind: '' (saved), 'dirty', 'saving', 'error'
+        saveState.className = kind;
+        saveStateText.textContent = text;
+      };
+
+      // Serialize the live canvas to the same shape lib/build.mjs writes, so a
+      // saved scene is interchangeable with a built one.
+      const serializeScene = () => JSON.stringify({
+        type: 'excalidraw',
+        version: 2,
+        source: location.origin,
+        elements: api.getSceneElements(),
+        appState: { viewBackgroundColor: api.getAppState().viewBackgroundColor || '#ffffff' },
+        files: api.getFiles(),
+      });
+
+      let saveInFlight = false, savePending = false;
+      async function flushSave() {
+        if (!api) return;
+        if (saveInFlight) { savePending = true; return; } // coalesce overlapping saves
+        saveInFlight = true;
+        setSaveState('saving', 'saving…');
+        try {
+          const res = await fetch(`/scene/${encodeURIComponent(slug)}.excalidraw`, {
+            method: 'PUT', cache: 'no-store',
+            headers: { 'Content-Type': 'application/json' },
+            body: serializeScene(),
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          // Mirror what we just saved so the poll loop's diff doesn't treat our
+          // own write as a remote change to re-apply.
+          lastText = await (await fetch(`/scene/${encodeURIComponent(slug)}.excalidraw?t=${Date.now()}`, { cache: 'no-store' })).text();
+          setSaveState('', `saved · ${new Date().toLocaleTimeString()}`);
+        } catch (err) {
+          setSaveState('error', 'save failed · retrying…');
+        } finally {
+          saveInFlight = false;
+          if (savePending) { savePending = false; flushSave(); } // a change landed mid-save
+        }
+      }
+
+      const SAVE_DEBOUNCE_MS = 800;
+      let saveTimer = null;
+      const scheduleSave = () => {
+        setSaveState('dirty', 'unsaved…');
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(flushSave, SAVE_DEBOUNCE_MS);
+      };
+
+      if (editMode) {
+        savebar.style.display = 'flex';
+        document.getElementById('save-now').addEventListener('click', () => {
+          clearTimeout(saveTimer);
+          flushSave();
+        });
+      }
+
       function App() {
         return React.createElement(Excalidraw, {
           excalidrawAPI: (a) => { api = a; },
           theme: 'light',
           viewModeEnabled: !editMode, // read-only by default; ?edit=1 unlocks editing
+          // Persist hand edits while editing. onChange fires a lot (incl. pure
+          // pan/zoom), but firstLoaded gates it so the initial scene load and any
+          // pre-load noise don't trigger a save before the user actually edits.
+          onChange: editMode ? () => { if (firstLoaded) scheduleSave(); } : undefined,
           initialData: { appState: { viewBackgroundColor: '#ffffff' } },
           UIOptions: { canvasActions: { loadScene: true, export: { saveFileToDisk: true }, saveToActiveFile: false } },
         });
@@ -436,7 +529,12 @@
             const text = await res.text();
             // Only consume the text once the canvas API is ready, otherwise we'd
             // mark it "seen" before rendering and never draw it.
-            if (api && text && text !== lastText) {
+            // In edit mode, the local canvas is the source of truth once it has
+            // loaded once: applying remote updates would clobber in-progress hand
+            // edits (and fight the debounced save). So only auto-apply remote
+            // scenes in read-only mode, or for the very first load in edit mode.
+            const mayApply = !editMode || !firstLoaded;
+            if (api && text && text !== lastText && mayApply) {
               lastText = text;
               const scene = JSON.parse(text);
               if (Array.isArray(scene.elements)) {
@@ -454,7 +552,11 @@
                 }
               }
             }
-            setStatus('ok', `exgram • ${slug} • live · ${new Date().toLocaleTimeString()}`);
+            // Status reflects mode: "live" follows the server; "editing" means
+            // local edits win and are being persisted on change.
+            setStatus('ok', editMode
+              ? `exgram • ${slug} • editing · ${new Date().toLocaleTimeString()}`
+              : `exgram • ${slug} • live · ${new Date().toLocaleTimeString()}`);
           }
         } catch (err) {
           pollDelay = Math.min(pollDelay * 2, POLL_MAX); // server down -> slow down
