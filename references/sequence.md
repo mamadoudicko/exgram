@@ -18,6 +18,9 @@ mix `rawElements` with normal `nodes`/`edges` in the same spec.
   strokeStyle, endArrowhead, startArrowhead }`. `x,y` is the start point; `points` are relative.
 - To **bind a label to an arrow**, you'd normally use `nodes`/`edges` — for raw, just place a
   separate `text` element near the midpoint.
+- **Standalone (unbound) text ignores `verticalAlign:"middle"`** — Excalidraw only vertically
+  centers text that's bound to a container. When hand-placing a label inside a box via
+  `rawElements`, compute its `y` to center it (e.g. `box.y + box.height/2 - fontSize*0.6`).
 
 ## Sequence diagram pattern
 Lay it out yourself: actors across the top, vertical dashed lifelines going down, horizontal

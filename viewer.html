@@ -87,7 +87,7 @@
   <script type="module">
     import React from 'https://esm.sh/react@18.3.1';
     import { createRoot } from 'https://esm.sh/react-dom@18.3.1/client';
-    import { Excalidraw } from 'https://esm.sh/@excalidraw/excalidraw@0.18.0?deps=react@18.3.1,react-dom@18.3.1';
+    import { Excalidraw, restoreElements } from 'https://esm.sh/@excalidraw/excalidraw@0.18.0?deps=react@18.3.1,react-dom@18.3.1';
 
     const params = new URLSearchParams(location.search);
     const slug = params.get('d');
@@ -240,11 +240,16 @@
               lastText = text;
               const scene = JSON.parse(text);
               if (Array.isArray(scene.elements)) {
-                api.updateScene({ elements: scene.elements }); // omit appState -> keep zoom/pan
+                // #19: restoreElements backfills any missing render fields (ids,
+                // points, lineHeight, ...) so an incomplete element can't crash
+                // hit-testing and blank the canvas. refreshDimensions:false keeps
+                // authored text/box sizes. omit appState -> keep zoom/pan.
+                const restored = restoreElements(scene.elements, null, { refreshDimensions: false });
+                api.updateScene({ elements: restored });
                 if (!firstLoaded) {
                   firstLoaded = true;
                   setTimeout(() => {
-                    try { api.scrollToContent(scene.elements, { fitToContent: true, animate: false, viewportZoomFactor: 0.85 }); } catch {}
+                    try { api.scrollToContent(restored, { fitToContent: true, animate: false, viewportZoomFactor: 0.85 }); } catch {}
                   }, 60);
                 }
               }
