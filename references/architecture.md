@@ -57,6 +57,25 @@ still regenerates `<slug>.excalidraw` and WILL overwrite hand edits — the spec
 remains the canonical source for rebuilds. A spec/overlay merge (preserving hand
 edits across rebuilds) is a deeper follow-up, not part of this MVP.
 
-## Icons (phase 2)
-Official cloud/tech icons (AWS, GCP, Azure, simple-icons) are a planned enhancement: they'll
-embed as Excalidraw image elements. Until then, offer colored shapes and mention icons are coming.
+## Icons
+Give a node an `icon` to draw a recognizable glyph inside its box (embedded as an
+Excalidraw image element). Icons resolve OFFLINE — the build is synchronous and
+zero-dependency, so only the bundled GENERIC category icons (and `data:` URLs)
+work today.
+
+Supported generic categories (case-insensitive):
+`gateway`, `api`, `database`, `cache`, `queue` (alias `bus`), `identity`, `pim`,
+`dam`, `cdn`, `load-balancer` (aliases `lb`, `loadbalancer`), `agent`, `model`,
+`observability`, `service`, `server`, `user`, `cloud`.
+
+You can also pass a `data:` URL (e.g. an inline SVG/PNG) and it's embedded as-is.
+
+```json
+{ "id": "db", "label": "Postgres", "role": "datastore", "icon": "database" }
+```
+
+Anything else — brand slugs (`apachekafka`), namespaced cloud ids (`aws:rds`,
+`gcp:vertex-ai`), and remote `http(s)` URLs — is a documented follow-up: it needs
+fetching/licensed packs which a synchronous offline build can't do. Those values
+fall back GRACEFULLY to the role color (no icon) and the build prints a warning
+so you know the glyph was skipped.

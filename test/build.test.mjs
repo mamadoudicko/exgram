@@ -258,6 +258,59 @@ test('source-less node is ranked by its successor, not pinned to column 0 (#6)',
   assert.ok(x('orphan') > x('root'), 'orphan is pulled right toward the node it feeds');
 });
 
+test('a node with a generic icon emits one image element + a matching file (#24)', () => {
+  const scene = buildScene({ nodes: [{ id: 'db', label: 'DB', icon: 'database' }], edges: [] });
+  const images = scene.elements.filter((e) => e.type === 'image');
+  assert.equal(images.length, 1, 'exactly one image element');
+  const img = images[0];
+  assert.equal(img.status, 'saved');
+  assert.deepEqual(img.scale, [1, 1]);
+  assert.ok(img.fileId, 'image references a fileId');
+  const file = scene.files[img.fileId];
+  assert.ok(file, 'scene.files has the matching entry');
+  assert.equal(file.id, img.fileId);
+  assert.equal(file.mimeType, 'image/svg+xml');
+  assert.match(file.dataURL, /^data:image\/svg\+xml;base64,/, 'dataURL is a base64 data URL');
+  // icon sits inside the node box
+  const rect = scene.elements.find((e) => e.id === 'n.db' && e.type === 'rectangle');
+  assert.ok(img.x >= rect.x && img.x + img.width <= rect.x + rect.width, 'icon is inside the box');
+});
+
+test('aliases and case-insensitivity resolve (#24)', () => {
+  const scene = buildScene({ nodes: [{ id: 'b', label: 'Bus', icon: 'BUS' }], edges: [] });
+  assert.equal(scene.elements.filter((e) => e.type === 'image').length, 1, 'bus alias -> queue icon');
+});
+
+test('a data: URL icon is embedded verbatim (#24)', () => {
+  const dataURL = 'data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=';
+  const scene = buildScene({ nodes: [{ id: 'x', label: 'X', icon: dataURL }], edges: [] });
+  const img = scene.elements.find((e) => e.type === 'image');
+  assert.ok(img, 'image element produced for data: URL');
+  assert.equal(scene.files[img.fileId].dataURL, dataURL, 'data URL passed through as-is');
+});
+
+test('an unresolvable icon falls back to normal rendering + warns, no throw (#24)', () => {
+  let scene;
+  assert.doesNotThrow(() => {
+    scene = buildScene({ nodes: [{ id: 'db', label: 'DB', role: 'datastore', icon: 'aws:rds' }], edges: [] });
+  });
+  assert.equal(scene.elements.filter((e) => e.type === 'image').length, 0, 'no image element');
+  assert.deepEqual(scene.files, {}, 'no files entry');
+  // node still renders with its role color
+  const rect = scene.elements.find((e) => e.id === 'n.db');
+  assert.equal(rect.backgroundColor, PALETTE.datastore.bg, 'role color retained');
+  assert.ok(scene._warnings.some((w) => w.includes('aws:rds') && w.includes('not resolvable')), 'warning emitted');
+});
+
+test('icon fileId is deterministic across rebuilds (#24)', () => {
+  const spec = { nodes: [{ id: 'q', label: 'Q', icon: 'queue' }], edges: [] };
+  const a = buildScene(spec);
+  const b = buildScene(spec);
+  const fa = a.elements.find((e) => e.type === 'image').fileId;
+  const fb = b.elements.find((e) => e.type === 'image').fileId;
+  assert.equal(fa, fb, 'same fileId on rebuild');
+});
+
 test('layout linter flags overlapping nodes (#6)', () => {
   const scene = buildScene({
     nodes: [{ id: 'a', label: 'A', x: 0, y: 0 }, { id: 'b', label: 'B', x: 10, y: 10 }],
