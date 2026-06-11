@@ -543,6 +543,13 @@
                 // hit-testing and blank the canvas. refreshDimensions:false keeps
                 // authored text/box sizes. omit appState -> keep zoom/pan.
                 const restored = restoreElements(scene.elements, null, { refreshDimensions: false });
+                // #24: register embedded image bytes (node icons) BEFORE updateScene,
+                // otherwise image elements reference a fileId Excalidraw doesn't have
+                // yet and render as a broken-image placeholder. addFiles is idempotent.
+                if (scene.files && typeof scene.files === 'object') {
+                  const files = Object.values(scene.files).filter((f) => f && f.id && f.dataURL);
+                  if (files.length) { try { api.addFiles(files); } catch {} }
+                }
                 api.updateScene({ elements: restored });
                 if (!firstLoaded) {
                   firstLoaded = true;
