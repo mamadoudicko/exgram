@@ -450,19 +450,29 @@
         files: api.getFiles(),
       });
 
+      // Serialized snapshot of what's currently on disk for this board, so we can
+      // skip saving when nothing actually changed. onChange fires on pure pan/zoom
+      // too (which don't alter the serialized scene), so this elides no-op writes.
+      let lastSavedScene = null;
       let saveInFlight = false, savePending = false;
       async function flushSave() {
         if (!api) return;
         if (saveInFlight) { savePending = true; return; } // coalesce overlapping saves
+        const body = serializeScene();
+        if (body === lastSavedScene) { // nothing changed (e.g. just a pan/zoom)
+          setSaveState('', lastSavedScene ? `saved · ${new Date().toLocaleTimeString()}` : 'saved');
+          return;
+        }
         saveInFlight = true;
         setSaveState('saving', 'saving…');
         try {
           const res = await fetch(`/scene/${encodeURIComponent(slug)}.excalidraw`, {
             method: 'PUT', cache: 'no-store',
             headers: { 'Content-Type': 'application/json' },
-            body: serializeScene(),
+            body,
           });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          lastSavedScene = body; // remember what we just persisted
           // Mirror what we just saved so the poll loop's diff doesn't treat our
           // own write as a remote change to re-apply.
           lastText = await (await fetch(`/scene/${encodeURIComponent(slug)}.excalidraw?t=${Date.now()}`, { cache: 'no-store' })).text();
@@ -555,6 +565,9 @@
                   firstLoaded = true;
                   setTimeout(() => {
                     try { api.scrollToContent(restored, { fitToContent: true, animate: false, viewportZoomFactor: 0.85 }); } catch {}
+                    // Seed the saved-scene snapshot from the just-loaded board so the
+                    // first onChange (and any pan/zoom) doesn't trigger a no-op write.
+                    if (editMode) { try { lastSavedScene = serializeScene(); } catch {} }
                   }, 60);
                 }
               }

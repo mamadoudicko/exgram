@@ -96,3 +96,28 @@ test('PUT with a bad slug is rejected (400)', async () => {
     srv.stop();
   }
 });
+
+test('PUT with malformed JSON is rejected (400) and never corrupts a good render', async () => {
+  const srv = startServer();
+  try {
+    await waitForHealth(srv.port);
+    const good = JSON.stringify({
+      type: 'excalidraw', version: 2, source: 'test',
+      elements: [{ id: 'keep-me', type: 'rectangle' }],
+      appState: { viewBackgroundColor: '#ffffff' }, files: {},
+    });
+    assert.equal(await putScene(srv.port, 'guard', good), 200);
+
+    // A truncated/garbage body must be refused before it can overwrite the file.
+    assert.equal(await putScene(srv.port, 'guard', '{ "elements": ['), 400);
+    // Valid JSON but not a scene (no elements array) is also refused.
+    assert.equal(await putScene(srv.port, 'guard', '{"hello":"world"}'), 400);
+
+    // The previously-saved good scene is still intact and parseable.
+    const got = await getScene(srv.port, 'guard');
+    assert.equal(got.status, 200);
+    assert.equal(JSON.parse(got.body).elements[0].id, 'keep-me');
+  } finally {
+    srv.stop();
+  }
+});
