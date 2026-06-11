@@ -1,8 +1,16 @@
-# exgram
+<div align="center">
+
+<img src="./assets/wordmark.svg" alt="exgram" width="380" />
+
+### Your agent's diagrams, live and editable.
+
+</div>
 
 **Prompt (or image) → live Excalidraw diagram.** Describe a diagram, or drop in a screenshot, and a
 clean, auto-laid-out Excalidraw board appears in your browser. Ask for changes and it updates live.
 It's a Claude Code skill, so it runs on your agent with **no API key**.
+
+<sub>The wordmark above was drawn by exgram itself — see [`assets/wordmark.exgram.json`](./assets/wordmark.exgram.json).</sub>
 
 ![exgram diagram of its own pipeline, drawn live by exgram](./docs/how-exgram-works.png)
 
