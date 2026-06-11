@@ -105,6 +105,46 @@ test('rawElements pass through with bookkeeping stamped', () => {
   assert.equal(raw.isDeleted, false);
 });
 
+test('rawElements get a stable id and full render defaults (#19)', () => {
+  const scene = buildScene({
+    rawElements: [
+      { type: 'rectangle', x: 0, y: 0, width: 120, height: 60, backgroundColor: '#a5d8ff', strokeColor: '#1971c2', roundness: { type: 3 } },
+      { type: 'text', x: 10, y: 20, width: 100, height: 20, text: 'hello', fontSize: 16, fontFamily: 1 },
+      { type: 'arrow', x: 0, y: 100, width: 200, height: 0 },
+    ],
+  });
+  // every produced element has a non-empty string id + the base render fields
+  for (const el of scene.elements) {
+    assert.equal(typeof el.id, 'string');
+    assert.ok(el.id.length > 0, 'raw element has a non-empty id');
+    for (const f of REQUIRED) assert.ok(f in el, `raw ${el.type} missing "${f}"`);
+    assert.equal(typeof el.seed, 'number', 'seed derived from id');
+  }
+  const rect = scene.elements.find((e) => e.type === 'rectangle');
+  assert.equal(rect.fillStyle, 'solid');
+  assert.equal(rect.strokeWidth, 2);
+  assert.deepEqual(rect.roundness, { type: 3 }, 'authored roundness wins');
+  assert.equal(rect.backgroundColor, '#a5d8ff', 'authored fill wins');
+
+  const txt = scene.elements.find((e) => e.type === 'text');
+  assert.equal(txt.text, 'hello');
+  assert.equal(txt.originalText, 'hello', 'text gets originalText');
+  assert.equal(txt.lineHeight, 1.25, 'text gets lineHeight');
+  assert.equal(txt.autoResize, true, 'unbound text auto-resizes');
+
+  const arr = scene.elements.find((e) => e.type === 'arrow');
+  assert.ok(Array.isArray(arr.points) && arr.points.length === 2, 'arrow gets default points');
+  assert.equal(arr.elbowed, false, 'arrow gets elbowed default');
+});
+
+test('rawElements ids are deterministic and authored ids win (#19)', () => {
+  const spec = { rawElements: [{ type: 'rectangle', x: 0, y: 0, width: 10, height: 10 }, { id: 'mine', type: 'text', x: 0, y: 0, width: 10, height: 10, text: 'x' }] };
+  const a = buildScene(spec);
+  const b = buildScene(spec);
+  assert.deepEqual(a.elements.map((e) => e.id), b.elements.map((e) => e.id), 'raw ids stable across rebuilds');
+  assert.ok(a.elements.some((e) => e.id === 'mine'), 'authored id is preserved');
+});
+
 test('handles cycles without hanging', () => {
   const scene = buildScene({
     nodes: [{ id: 'a', label: 'A' }, { id: 'b', label: 'B' }],
