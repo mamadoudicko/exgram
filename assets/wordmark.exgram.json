@@ -1,0 +1,6 @@
+{
+  "rawElements": [
+    { "type": "text", "x": 0, "y": 0, "width": 320, "height": 78, "text": "exgram", "fontSize": 60, "fontFamily": 1, "textAlign": "left", "verticalAlign": "top", "strokeColor": "#1e1e1e" },
+    { "type": "line", "x": 6, "y": 80, "width": 300, "height": 10, "strokeColor": "#1971c2", "strokeWidth": 3, "roughness": 1.5, "points": [[0,0],[80,5],[150,-3],[230,4],[300,0]] }
+  ]
+}
