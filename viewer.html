@@ -62,6 +62,27 @@
     #index button.del { color: #e03131; border-color: #ffc9c9; }
     #index button.del:hover { background: #fff5f5; }
     #index p.empty { color: #adb5bd; }
+    /* per-board name + secondary meta line (created/edited times) */
+    #index li a .name { display: block; }
+    #index li a .meta {
+      display: block; margin-top: 3px; font-size: 12px; font-weight: 400; color: #868e96;
+    }
+    #index li a .meta time { color: inherit; }
+    /* sort control row, sits between the search box and the list */
+    #index .sort {
+      display: flex; align-items: center; gap: 6px; margin: 0 0 12px; flex-wrap: wrap;
+      font-size: 13px; color: #868e96;
+    }
+    #index .sort button.sortkey {
+      font: inherit; cursor: pointer; color: #495057; background: #fff;
+      border: 1px solid #dee2e6; border-radius: 8px; padding: 4px 10px; line-height: 1.4;
+    }
+    #index .sort button.sortkey:hover { background: #f1f3f5; }
+    #index .sort button.sortkey.active { color: #1971c2; border-color: #74c0fc; background: #e7f5ff; }
+    #index .sort button.sortkey .arrow { color: #adb5bd; margin-left: 2px; }
+    #index .sort button.sortkey.active .arrow { color: #1971c2; }
+    /* on a narrow viewport, drop the "created …" segment of the meta line */
+    @media (max-width: 480px) { #index li a .meta .created { display: none; } }
     /* search/filter box above the boards list */
     #index .search { position: relative; margin: 0 0 16px; }
     #index .search input {
@@ -245,37 +266,147 @@
         String(s).replace(/[&<>"']/g, (c) =>
           ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
-      let allSlugs = []; // last-known full list (for duplicate checks on rename)
-      let query = '';    // the typed filter; preserved across auto-refreshes
+      let allBoards = []; // last-known full list as { slug, created, updated }
+      let query = '';      // the typed filter; preserved across auto-refreshes
+
+      // Sort key + direction, persisted so the choice sticks across reloads.
+      // Defaults: by last edited, descending (most recently edited first).
+      const SORT_KEY = 'exgram:index-sort';
+      const SORT_KEYS = ['updated', 'created', 'name'];
+      let sort = { key: 'updated', dir: 'desc' };
+      try {
+        const saved = JSON.parse(localStorage.getItem(SORT_KEY) || 'null');
+        if (saved && SORT_KEYS.includes(saved.key) && (saved.dir === 'asc' || saved.dir === 'desc')) {
+          sort = { key: saved.key, dir: saved.dir };
+        }
+      } catch {}
+      const persistSort = () => {
+        try { localStorage.setItem(SORT_KEY, JSON.stringify(sort)); } catch {}
+      };
+
+      // --- relative / absolute time formatting (native Intl, no deps) ---
+      const RTF = (() => {
+        try { return new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' }); } catch { return null; }
+      })();
+      const ABS_SAME_YEAR = (() => {
+        try { return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }); } catch { return null; }
+      })();
+      const ABS_OTHER_YEAR = (() => {
+        try { return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' }); } catch { return null; }
+      })();
+      const FULL_DT = (() => {
+        try { return new Intl.DateTimeFormat(undefined, { dateStyle: 'full', timeStyle: 'short' }); } catch { return null; }
+      })();
+
+      // A short human label for a timestamp (ms): relative within ~7 days, then
+      // an absolute short date. Returns '' for null/invalid input.
+      function relTime(ms) {
+        if (ms == null || !isFinite(ms)) return '';
+        const now = Date.now();
+        const diff = ms - now;          // negative = in the past
+        const absMs = Math.abs(diff);
+        const SEC = 1000, MIN = 60 * SEC, HOUR = 60 * MIN, DAY = 24 * HOUR;
+        if (RTF) {
+          if (absMs < MIN) return RTF.format(0, 'second'); // "now"
+          if (absMs < HOUR) return RTF.format(Math.round(diff / MIN), 'minute');
+          if (absMs < DAY) return RTF.format(Math.round(diff / HOUR), 'hour');
+          if (absMs < 7 * DAY) return RTF.format(Math.round(diff / DAY), 'day');
+        }
+        // Past ~7 days (or no Intl): absolute short date, with year if it differs.
+        const d = new Date(ms);
+        const sameYear = d.getFullYear() === new Date(now).getFullYear();
+        const fmt = sameYear ? ABS_SAME_YEAR : ABS_OTHER_YEAR;
+        return fmt ? fmt.format(d) : d.toISOString().slice(0, 10);
+      }
+
+      // A <time> element (HTML string) for a timestamp, or an em-dash when absent.
+      function timeTag(ms) {
+        if (ms == null || !isFinite(ms)) return '—';
+        const d = new Date(ms);
+        const title = FULL_DT ? FULL_DT.format(d) : d.toString();
+        return `<time datetime="${escapeHtml(d.toISOString())}" title="${escapeHtml(title)}">${escapeHtml(relTime(ms))}</time>`;
+      }
+
+      // Order boards by the active sort. Null timestamps always sort LAST,
+      // regardless of direction. Name uses a natural, case-insensitive compare.
+      function sortBoards(list) {
+        const dir = sort.dir === 'asc' ? 1 : -1;
+        const arr = list.slice();
+        if (sort.key === 'name') {
+          arr.sort((a, b) =>
+            dir * a.slug.localeCompare(b.slug, undefined, { numeric: true, sensitivity: 'base' }));
+          return arr;
+        }
+        const field = sort.key === 'created' ? 'created' : 'updated';
+        arr.sort((a, b) => {
+          const av = a[field], bv = b[field];
+          const aNull = av == null || !isFinite(av);
+          const bNull = bv == null || !isFinite(bv);
+          if (aNull && bNull) {
+            // Stable tie-break by name so null rows have a deterministic order.
+            return a.slug.localeCompare(b.slug, undefined, { numeric: true, sensitivity: 'base' });
+          }
+          if (aNull) return 1;  // a sorts after b (last)
+          if (bNull) return -1; // b sorts after a (last)
+          return dir * (av - bv);
+        });
+        return arr;
+      }
 
       // Re-paint just the list portion, applying the current case-insensitive
-      // filter. Kept separate from the chrome so re-rendering never disturbs the
-      // search input (and the query the user has typed).
+      // filter and the active sort. Kept separate from the chrome so
+      // re-rendering never disturbs the search input or the sort buttons.
       function renderList() {
         const listEl = document.getElementById('board-list');
         if (!listEl) return;
         const q = query.trim().toLowerCase();
-        const items = q ? allSlugs.filter((s) => s.toLowerCase().includes(q)) : allSlugs;
-        if (!allSlugs.length) {
+        const filtered = q ? allBoards.filter((b) => b.slug.toLowerCase().includes(q)) : allBoards;
+        const items = sortBoards(filtered);
+        if (!allBoards.length) {
           listEl.innerHTML = '<p class="empty">No diagrams yet. Ask your agent to draw something.</p>';
           return;
         }
         listEl.innerHTML = items.length
-          ? '<ul>' + items.map((s) =>
-              `<li><a href="/?d=${encodeURIComponent(s)}">${escapeHtml(s)}</a>` +
-              `<button class="act rename" type="button" title="Rename" data-slug="${encodeURIComponent(s)}">✎ Rename</button>` +
-              `<button class="act del" type="button" title="Delete" data-slug="${encodeURIComponent(s)}">Delete</button></li>`).join('') + '</ul>'
+          ? '<ul>' + items.map((b) => {
+              const s = b.slug;
+              const meta = `<span class="created">created ${timeTag(b.created)}</span> · ` +
+                `<span class="edited">edited ${timeTag(b.updated)}</span>`;
+              return `<li><a href="/?d=${encodeURIComponent(s)}">` +
+                `<span class="name">${escapeHtml(s)}</span>` +
+                `<span class="meta">${meta}</span></a>` +
+                `<button class="act rename" type="button" title="Rename" data-slug="${encodeURIComponent(s)}">✎ Rename</button>` +
+                `<button class="act del" type="button" title="Delete" data-slug="${encodeURIComponent(s)}">Delete</button></li>`;
+            }).join('') + '</ul>'
           : `<p class="noresults">No boards match "${escapeHtml(query.trim())}".</p>`;
       }
 
-      // Build the static chrome (heading + search box) once; the list lives in a
-      // child container that we repaint on every refresh.
+      // Repaint just the sort buttons' active state + direction arrows, without
+      // disturbing the search input.
+      const SORT_LABELS = { updated: 'Last edited', created: 'Created', name: 'Name' };
+      function renderSort() {
+        const bar = document.getElementById('board-sort');
+        if (!bar) return;
+        bar.querySelectorAll('button.sortkey').forEach((btn) => {
+          const active = btn.dataset.key === sort.key;
+          btn.classList.toggle('active', active);
+          const arrow = btn.querySelector('.arrow');
+          if (arrow) arrow.textContent = active ? (sort.dir === 'asc' ? '↑' : '↓') : '';
+        });
+      }
+
+      // Build the static chrome (heading + search box + sort control) once; the
+      // list lives in a child container that we repaint on every refresh.
       function renderChrome() {
         index.innerHTML =
           '<h1>exgram</h1><p>Live boards on this server. Open one, or ask your agent to draw a new one.</p>' +
           '<div class="search">' +
             '<input id="board-search" type="text" placeholder="Filter boards…" autocomplete="off" spellcheck="false" />' +
             '<button class="clear" type="button" title="Clear filter" hidden>×</button>' +
+          '</div>' +
+          '<div class="sort" id="board-sort">' +
+            '<span>Sort:</span>' +
+            SORT_KEYS.map((k) =>
+              `<button class="sortkey" type="button" data-key="${k}">${SORT_LABELS[k]}<span class="arrow"></span></button>`).join('') +
           '</div>' +
           '<div id="board-list"></div>';
         const input = document.getElementById('board-search');
@@ -294,11 +425,36 @@
           input.focus();
           renderList();
         });
+        // Sort buttons: clicking a key activates it; clicking the active key
+        // toggles its direction. New keys default to descending (name -> asc).
+        document.getElementById('board-sort').addEventListener('click', (ev) => {
+          const btn = ev.target.closest('button.sortkey');
+          if (!btn) return;
+          const key = btn.dataset.key;
+          if (key === sort.key) {
+            sort.dir = sort.dir === 'asc' ? 'desc' : 'asc';
+          } else {
+            sort.key = key;
+            sort.dir = key === 'name' ? 'asc' : 'desc';
+          }
+          persistSort();
+          renderSort();
+          renderList();
+        });
+        renderSort();
         input.focus(); // autofocus on load
       }
 
       async function refresh() {
-        try { allSlugs = await (await fetch('/api/diagrams', { cache: 'no-store' })).json(); } catch {}
+        try {
+          const data = await (await fetch('/api/diagrams', { cache: 'no-store' })).json();
+          // Tolerate the legacy string-array shape just in case.
+          allBoards = Array.isArray(data)
+            ? data.map((d) => (typeof d === 'string'
+                ? { slug: d, created: null, updated: null }
+                : { slug: d.slug, created: d.created ?? null, updated: d.updated ?? null }))
+            : [];
+        } catch {}
         renderList();
       }
 
@@ -308,7 +464,7 @@
         const renameBtn = ev.target.closest('button.rename');
         if (renameBtn) {
           const s = decodeURIComponent(renameBtn.dataset.slug);
-          const to = await renameBoard(s, allSlugs);
+          const to = await renameBoard(s, allBoards.map((b) => b.slug));
           if (to) await refresh();
           return;
         }
@@ -352,7 +508,10 @@
       // Rename the current board, then navigate to its new URL.
       boardbar.querySelector('button.rename').addEventListener('click', async () => {
         let existing = [];
-        try { existing = await (await fetch('/api/diagrams', { cache: 'no-store' })).json(); } catch {}
+        try {
+          const data = await (await fetch('/api/diagrams', { cache: 'no-store' })).json();
+          existing = (Array.isArray(data) ? data : []).map((d) => (typeof d === 'string' ? d : d.slug));
+        } catch {}
         const to = await renameBoard(slug, existing);
         if (to) location.href = `/?d=${encodeURIComponent(to)}`;
       });
@@ -415,8 +574,11 @@
           const items = await (await fetch('/api/diagrams', { cache: 'no-store' })).json();
           const list = document.getElementById('nf-list');
           if (list) {
-            list.innerHTML = (Array.isArray(items) && items.length)
-              ? items.map((s) => `<li><a class="board" href="/?d=${encodeURIComponent(s)}">${escapeHtml(s)}</a></li>`).join('')
+            // /api/diagrams now returns objects ({ slug, created, updated });
+            // read item.slug (tolerating the legacy string shape).
+            const slugs = (Array.isArray(items) ? items : []).map((d) => (typeof d === 'string' ? d : d.slug));
+            list.innerHTML = slugs.length
+              ? slugs.map((s) => `<li><a class="board" href="/?d=${encodeURIComponent(s)}">${escapeHtml(s)}</a></li>`).join('')
               : '<li class="empty">No boards on this server yet.</li>';
           }
         } catch {

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { get as httpGet, request as httpRequest } from 'node:http';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -62,6 +62,71 @@ const getScene = (port, slug) =>
     });
     req.on('error', reject);
   });
+
+const getJson = (port, path) =>
+  new Promise((resolve, reject) => {
+    const req = httpGet({ host: '127.0.0.1', port, path: `${path}?t=${Date.now()}`, timeout: 1000 }, (res) => {
+      let data = '';
+      res.setEncoding('utf8');
+      res.on('data', (c) => { data += c; });
+      res.on('end', () => resolve({ status: res.statusCode, body: JSON.parse(data) }));
+    });
+    req.on('error', reject);
+  });
+
+const SCENE = JSON.stringify({
+  type: 'excalidraw', version: 2, source: 'test',
+  elements: [{ id: 'r', type: 'rectangle' }],
+  appState: { viewBackgroundColor: '#ffffff' }, files: {},
+});
+
+test('GET /api/diagrams returns objects with slug + numeric-or-null created/updated, created <= updated', async () => {
+  const srv = startServer();
+  try {
+    await waitForHealth(srv.port);
+    // A board with BOTH a render and a spec.
+    assert.equal(await putScene(srv.port, 'with-spec', SCENE), 200);
+    writeFileSync(join(srv.workspace, 'with-spec.json'), JSON.stringify({ title: 'x' }));
+
+    const { status, body } = await getJson(srv.port, '/api/diagrams');
+    assert.equal(status, 200);
+    assert.ok(Array.isArray(body));
+    const item = body.find((b) => b.slug === 'with-spec');
+    assert.ok(item, 'with-spec board present');
+    // Shape: slug string + created/updated each numeric or null.
+    assert.equal(typeof item.slug, 'string');
+    for (const k of ['created', 'updated']) {
+      assert.ok(item[k] === null || typeof item[k] === 'number', `${k} numeric-or-null`);
+    }
+    // created is never later than updated.
+    if (item.created != null && item.updated != null) {
+      assert.ok(item.created <= item.updated, 'created <= updated');
+    }
+  } finally {
+    srv.stop();
+  }
+});
+
+test('GET /api/diagrams: a board with only a render (no .json) still appears', async () => {
+  const srv = startServer();
+  try {
+    await waitForHealth(srv.port);
+    // Render only — no .json spec written.
+    assert.equal(await putScene(srv.port, 'render-only', SCENE), 200);
+
+    const { status, body } = await getJson(srv.port, '/api/diagrams');
+    assert.equal(status, 200);
+    const item = body.find((b) => b.slug === 'render-only');
+    assert.ok(item, 'render-only board present despite missing .json');
+    // Timestamps still derive from the single render file.
+    assert.ok(item.updated === null || typeof item.updated === 'number');
+    if (item.created != null && item.updated != null) {
+      assert.ok(item.created <= item.updated);
+    }
+  } finally {
+    srv.stop();
+  }
+});
 
 test('PUT /scene/<slug>.excalidraw persists the scene and GET reads it back', async () => {
   const srv = startServer();
