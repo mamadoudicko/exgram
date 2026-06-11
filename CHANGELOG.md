@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-06-11
+
+### Added
+- **Node icons** (#24): a `node.icon` field embeds a recognizable glyph inside the box as
+  an Excalidraw image element. Resolves OFFLINE (zero-dependency, synchronous build): bundled
+  generic category icons (`gateway`, `api`, `database`, `cache`, `queue`/`bus`, `identity`,
+  `pim`, `dam`, `cdn`, `load-balancer`, `agent`, `model`, `observability`, `service`, `server`,
+  `user`, `cloud`) and `data:` URLs. Brand slugs (`apachekafka`), namespaced cloud ids
+  (`aws:rds`, `gcp:vertex-ai`), and remote URLs fall back gracefully to the role color with a
+  build warning (a documented follow-up). New `lib/icons.mjs`.
+- **Persist hand edits** (#23): open a board with `?edit=1` and manual canvas changes are
+  auto-saved (debounced) and survive reloads, via a new `PUT /scene/<slug>.excalidraw` endpoint
+  plus a Save bar with a saved/dirty indicator. The live-poll stops re-applying remote scenes
+  while editing so it can't clobber in-progress work. (Tradeoff: a fresh build from the spec
+  still regenerates the render — a spec/overlay merge is a follow-up.)
+- **Boards list search/filter** (#21): a client-side filter box on the index (autofocus + clear).
+- **Rename a board** (#20): from the boards list and the board action pad, backed by a new
+  `POST /api/rename` endpoint (slug-validated; refuses to clobber an existing board).
+
+### Changed
+- **Redesigned board action pad** (#25): a spaced toolbar with the navigation group (`← boards`)
+  visually separated from board actions (Rename / Edit / Delete), the destructive Delete styled
+  in red and routed through a confirmation, clear of Excalidraw's top-left menu.
+- **Delete now asks first** (#22): a styled in-app confirmation dialog replaces `window.confirm`
+  at both the index and board-view delete sites.
+
+### Fixed
+- **`rawElements` rendered a blank board** (#19): raw elements received no `id` and no render
+  defaults, so a `rawElements`-only spec crashed Excalidraw hit-testing (`Cannot read properties
+  of undefined (reading 'length')`) and blanked the canvas. They are now normalized through the
+  same defaults as `nodes`/`edges` (stable `id`, `seed`, shape/text/arrow fields), and the viewer
+  runs every scene through Excalidraw `restoreElements` before `updateScene` as defense-in-depth.
+- The viewer now registers embedded image bytes via `api.addFiles()` before `updateScene`, so node
+  icons render instead of showing a broken-image placeholder.
+- The `PUT /scene/<slug>.excalidraw` save endpoint rejects a body that isn't a parseable Excalidraw
+  scene (`400`) before writing, so a malformed/truncated save can't corrupt the render file; and the
+  viewer skips no-op saves (pure pan/zoom no longer triggers a write).
+
 ## [1.2.2] - 2026-06-10
 
 ### Fixed
