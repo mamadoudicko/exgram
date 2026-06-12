@@ -186,3 +186,49 @@ test('PUT with malformed JSON is rejected (400) and never corrupts a good render
     srv.stop();
   }
 });
+
+// Raw GET (status + content-type + body) for non-JSON routes.
+const getRaw = (port, path) =>
+  new Promise((resolve, reject) => {
+    const req = httpGet({ host: '127.0.0.1', port, path, timeout: 1000 }, (res) => {
+      let data = '';
+      res.setEncoding('utf8');
+      res.on('data', (c) => { data += c; });
+      res.on('end', () => resolve({ status: res.statusCode, type: res.headers['content-type'], body: data }));
+    });
+    req.on('error', reject);
+  });
+
+test('GET /<board> serves the viewer SPA (path routing), but a dotted path 404s', async () => {
+  const srv = startServer();
+  try {
+    await waitForHealth(srv.port);
+    // A bare board-name path returns the viewer HTML (the SPA reads the name from
+    // the path). The board itself need not exist yet — the SPA handles "not found".
+    const board = await getRaw(srv.port, '/checkout-flow');
+    assert.equal(board.status, 200);
+    assert.match(board.type || '', /text\/html/);
+    assert.match(board.body, /excalidraw/i); // it's the viewer document
+    // A path with a dot (e.g. a stray favicon request) is NOT a board -> 404.
+    const dotted = await getRaw(srv.port, '/favicon.ico');
+    assert.equal(dotted.status, 404);
+  } finally {
+    srv.stop();
+  }
+});
+
+test('honors $PORT (portless sets it) when $EXGRAM_PORT is unset', async () => {
+  const workspace = mkdtempSync(join(tmpdir(), 'exgram-port-'));
+  const port = 3980 + Math.floor(Math.random() * 15);
+  const env = { ...process.env, EXGRAM_WORKSPACE: workspace, PORT: String(port) };
+  delete env.EXGRAM_PORT; // only $PORT is set, as under portless
+  const proc = spawn(process.execPath, [SERVE], { env, stdio: 'ignore' });
+  try {
+    // If health answers on $PORT, the server bound the port portless gave it.
+    await waitForHealth(port);
+    assert.ok(true);
+  } finally {
+    try { proc.kill(); } catch {}
+    rmSync(workspace, { recursive: true, force: true });
+  }
+});

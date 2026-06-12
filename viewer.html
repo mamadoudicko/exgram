@@ -195,7 +195,11 @@
     import { Excalidraw, restoreElements } from 'https://esm.sh/@excalidraw/excalidraw@0.18.0?deps=react@18.3.1,react-dom@18.3.1';
 
     const params = new URLSearchParams(location.search);
-    const slug = params.get('d');
+    // Board name comes from the path (exgram.localhost/checkout-flow) or, as a
+    // backward-compatible alias, from ?d=checkout-flow. Path segment must be a
+    // safe slug; anything else falls through to index mode.
+    const pathSlug = decodeURIComponent(location.pathname).replace(/^\/+|\/+$/g, '');
+    const slug = params.get('d') || (/^[a-z0-9][a-z0-9_-]*$/i.test(pathSlug) ? pathSlug : null);
     const editMode = params.get('edit') === '1';
     const boot = document.getElementById('boot');
 
@@ -378,7 +382,7 @@
               const s = b.slug;
               const meta = `<span class="created">created ${timeTag(b.created)}</span> · ` +
                 `<span class="edited">edited ${timeTag(b.updated)}</span>`;
-              return `<li><a href="/?d=${encodeURIComponent(s)}">` +
+              return `<li><a href="/${encodeURIComponent(s)}">` +
                 `<span class="name">${escapeHtml(s)}</span>` +
                 `<span class="meta">${meta}</span></a>` +
                 `<button class="act rename" type="button" title="Rename" data-slug="${encodeURIComponent(s)}">✎ Rename</button>` +
@@ -557,7 +561,7 @@
           existing = (Array.isArray(data) ? data : []).map((d) => (typeof d === 'string' ? d : d.slug));
         } catch {}
         const to = await renameBoard(slug, existing);
-        if (to) location.href = `/?d=${encodeURIComponent(to)}`;
+        if (to) location.href = `/${encodeURIComponent(to)}`;
       });
 
       boardbar.querySelector('button.del').addEventListener('click', async () => {
@@ -622,7 +626,7 @@
             // read item.slug (tolerating the legacy string shape).
             const slugs = (Array.isArray(items) ? items : []).map((d) => (typeof d === 'string' ? d : d.slug));
             list.innerHTML = slugs.length
-              ? slugs.map((s) => `<li><a class="board" href="/?d=${encodeURIComponent(s)}">${escapeHtml(s)}</a></li>`).join('')
+              ? slugs.map((s) => `<li><a class="board" href="/${encodeURIComponent(s)}">${escapeHtml(s)}</a></li>`).join('')
               : '<li class="empty">No boards on this server yet.</li>';
           }
         } catch {

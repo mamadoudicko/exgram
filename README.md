@@ -48,6 +48,20 @@ lists them all.
 Your boards are saved in `~/.exgram/workspace` (set `EXGRAM_WORKSPACE` to change it). They live
 outside the skill folder on purpose, so running `npx skills update exgram` never deletes them.
 
+### Seeing your boards
+
+On start, exgram prints a local URL (and writes it to `~/.exgram/workspace/.exgram-url`) — the agent
+opens it for you. The home page lists every board, and each one has a clean path, e.g.
+**`localhost:3737/checkout-flow`** (the older `?d=checkout-flow` still works).
+
+**Optional — a stable `exgram.localhost`.** If you run a local reverse proxy such as
+[portless](https://portless.sh/), exgram is reachable at **`exgram.localhost`** (and each board at
+**`exgram.localhost/<name>`**) — a stable host that doesn't change when the port does. exgram ships a
+`portless.json` and honors portless's `PORT`, so launching it under portless just works; it then
+auto-detects the host and points the agent there. It's purely opt-in: with no proxy, exgram keeps
+using `localhost:<port>` exactly as before, unprivileged and loopback-only. (portless serves it over
+HTTPS by default — exgram adds no TLS or extra config of its own.)
+
 ## What it's good for
 
 - **Raw notes → clean diagram** — dump your messy project notes and exgram structures them into a tidy, labeled board.

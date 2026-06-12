@@ -41,6 +41,7 @@
     "styles/",
     "assets/",
     "viewer.html",
+    "portless.json",
     "docs/"
   ]
 }
