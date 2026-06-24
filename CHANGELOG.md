@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-06-24
+
 ### Added
 - **Duplicate a board** (#50): fork a diagram under a new slug, keeping the original
   intact. New `POST /api/duplicate` endpoint and a `node lib/duplicate.mjs <slug> <new-slug>`
@@ -14,6 +16,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   exists, target free; copies the `.json` spec when present plus the `.excalidraw` render).
   A **Duplicate** action sits beside Rename/Delete in the board view and each boards-list
   row; it prompts for a new slug (default `<slug>-copy`, then `-copy2`…) and opens the copy.
+
+### Changed
+- **Icon-only boards-list row actions** (#52): the per-row Rename/Duplicate/Delete buttons
+  are now compact, always-visible icon buttons (`✎` / `⧉` / `🗑`) with a per-board
+  `aria-label` + `title`, instead of three full-width text buttons. Reduces row crowding and
+  scales as actions grow; keeps one-click Delete (with its red destructive styling) and tab
+  order. Chosen over an overflow/kebab menu deliberately — for three actions, design-system
+  guidance keeps them inline. The board-view top bar keeps its roomier text+icon buttons.
 
 ## [1.4.0] - 2026-06-11
 
