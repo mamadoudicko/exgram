@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Duplicate a board** (#50): fork a diagram under a new slug, keeping the original
+  intact. New `POST /api/duplicate` endpoint and a `node lib/duplicate.mjs <slug> <new-slug>`
+  CLI/lib helper, both backed by a shared `duplicateBoard` core (slug validation, source
+  exists, target free; copies the `.json` spec when present plus the `.excalidraw` render).
+  A **Duplicate** action sits beside Rename/Delete in the board view and each boards-list
+  row; it prompts for a new slug (default `<slug>-copy`, then `-copy2`…) and opens the copy.
+
 ## [1.4.0] - 2026-06-11
 
 ### Added
