@@ -168,6 +168,9 @@ output clean despite these.
   skill folder, so `npx skills update` does not delete them. Override with `$EXGRAM_WORKSPACE`.
 - **Navigating + deleting.** A board has a "← boards" link back to the list; users can delete a board
   from the index list (per row) or the board's bar. Deleting removes its `<slug>.json` + `<slug>.excalidraw`.
+- **Duplicating (forking).** A "Duplicate" action (board bar + per row) copies a board's spec + render to
+  a new slug, leaving the original intact — use it to iterate on a variant. From the CLI:
+  `node "$SKILL_DIR/lib/duplicate.mjs" <slug> <new-slug>`.
 - The viewer loads Excalidraw from a CDN, so the board needs internet the first time.
 - Keep `serve.mjs` running in the background; never block the turn waiting on it.
 - Save = the user exports from Excalidraw (`.excalidraw` / PNG / SVG) via the canvas menu.

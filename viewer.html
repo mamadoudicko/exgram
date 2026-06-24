@@ -181,6 +181,7 @@
     <div class="divider"></div>
     <div class="group">
       <button class="rename" type="button" title="Rename this board"><span class="ic">✎</span> Rename</button>
+      <button class="dup" type="button" title="Duplicate this board"><span class="ic">⧉</span> Duplicate</button>
       <button class="edit" type="button" title="Toggle edit mode"><span class="ic">✏️</span> Edit</button>
       <button class="del" type="button" title="Delete this board"><span class="ic">🗑</span> Delete</button>
     </div>
@@ -258,6 +259,42 @@
         return to;
       } catch {
         alert('Rename failed: could not reach the server.');
+        return null;
+      }
+    }
+
+    // ---- shared duplicate flow: prompt for a new slug (default `<slug>-copy`),
+    // validate, POST /api/duplicate. Returns the new slug on success, or null if
+    // cancelled/failed (it alerts on a real failure). `existing` is the list of
+    // slugs to check for duplicates. Mirrors renameBoard.
+    async function duplicateBoard(from, existing) {
+      const known = new Set(existing || []);
+      // Default suggestion: `<slug>-copy`, then `-copy2`, `-copy3`… if taken.
+      let suggestion = `${from}-copy`;
+      for (let n = 2; known.has(suggestion); n++) suggestion = `${from}-copy${n}`;
+      let to = (window.prompt(`Duplicate board "${from}" as:`, suggestion) || '').trim();
+      if (!to) return null; // cancelled
+      if (!SLUG_RE.test(to)) {
+        alert('Invalid name. Use letters, digits, dashes or underscores (must start with a letter or digit).');
+        return null;
+      }
+      if (to === from || known.has(to)) {
+        alert(`A board named "${to}" already exists.`);
+        return null;
+      }
+      try {
+        const res = await fetch('/api/duplicate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ from, to }),
+        });
+        if (!res.ok) {
+          alert(res.status === 409 ? `A board named "${to}" already exists.` : `Duplicate failed (${res.status}).`);
+          return null;
+        }
+        return to;
+      } catch {
+        alert('Duplicate failed: could not reach the server.');
         return null;
       }
     }
@@ -382,6 +419,7 @@
                 `<span class="name">${escapeHtml(s)}</span>` +
                 `<span class="meta">${meta}</span></a>` +
                 `<button class="act rename" type="button" title="Rename" data-slug="${encodeURIComponent(s)}">✎ Rename</button>` +
+                `<button class="act dup" type="button" title="Duplicate" data-slug="${encodeURIComponent(s)}">⧉ Duplicate</button>` +
                 `<button class="act del" type="button" title="Delete" data-slug="${encodeURIComponent(s)}">Delete</button></li>`;
             }).join('') + '</ul>'
           : `<p class="noresults">No boards match "${escapeHtml(query.trim())}".</p>`;
@@ -476,6 +514,13 @@
           if (to) await refresh();
           return;
         }
+        const dupBtn = ev.target.closest('button.dup');
+        if (dupBtn) {
+          const s = decodeURIComponent(dupBtn.dataset.slug);
+          const to = await duplicateBoard(s, allBoards.map((b) => b.slug));
+          if (to) await refresh();
+          return;
+        }
         const delBtn = ev.target.closest('button.del');
         if (!delBtn) return;
         const s = decodeURIComponent(delBtn.dataset.slug);
@@ -557,6 +602,16 @@
           existing = (Array.isArray(data) ? data : []).map((d) => (typeof d === 'string' ? d : d.slug));
         } catch {}
         const to = await renameBoard(slug, existing);
+        if (to) location.href = `/?d=${encodeURIComponent(to)}`;
+      });
+
+      boardbar.querySelector('button.dup').addEventListener('click', async () => {
+        let existing = [];
+        try {
+          const data = await (await fetch('/api/diagrams', { cache: 'no-store' })).json();
+          existing = (Array.isArray(data) ? data : []).map((d) => (typeof d === 'string' ? d : d.slug));
+        } catch {}
+        const to = await duplicateBoard(slug, existing);
         if (to) location.href = `/?d=${encodeURIComponent(to)}`;
       });
 
