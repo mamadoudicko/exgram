@@ -605,7 +605,6 @@
         if (to) location.href = `/?d=${encodeURIComponent(to)}`;
       });
 
-      // Duplicate the current board, then navigate to the new copy.
       boardbar.querySelector('button.dup').addEventListener('click', async () => {
         let existing = [];
         try {
