@@ -57,9 +57,14 @@
       text-decoration: none; color: #1971c2; font-weight: 600;
     }
     #index li a:hover { background: #f1f3f5; }
+    /* Icon-only row actions: square buttons keep each row tight (3 actions sit
+       inline rather than behind an overflow menu — see issue #52). The glyph is
+       the visual; `aria-label` + `title` carry the accessible name + tooltip. */
     #index button.act {
       font: inherit; cursor: pointer; color: #495057; background: #fff;
-      border: 1px solid #dee2e6; border-radius: 10px; padding: 0 14px; line-height: 1;
+      border: 1px solid #dee2e6; border-radius: 10px; line-height: 1;
+      width: 40px; display: inline-flex; align-items: center; justify-content: center;
+      font-size: 16px;
     }
     #index button.act:hover { background: #f1f3f5; }
     #index button.del { color: #e03131; border-color: #ffc9c9; }
@@ -418,9 +423,9 @@
               return `<li><a href="/?d=${encodeURIComponent(s)}">` +
                 `<span class="name">${escapeHtml(s)}</span>` +
                 `<span class="meta">${meta}</span></a>` +
-                `<button class="act rename" type="button" title="Rename" data-slug="${encodeURIComponent(s)}">✎ Rename</button>` +
-                `<button class="act dup" type="button" title="Duplicate" data-slug="${encodeURIComponent(s)}">⧉ Duplicate</button>` +
-                `<button class="act del" type="button" title="Delete" data-slug="${encodeURIComponent(s)}">Delete</button></li>`;
+                `<button class="act rename" type="button" title="Rename" aria-label="Rename ${escapeHtml(s)}" data-slug="${encodeURIComponent(s)}">✎</button>` +
+                `<button class="act dup" type="button" title="Duplicate" aria-label="Duplicate ${escapeHtml(s)}" data-slug="${encodeURIComponent(s)}">⧉</button>` +
+                `<button class="act del" type="button" title="Delete" aria-label="Delete ${escapeHtml(s)}" data-slug="${encodeURIComponent(s)}">🗑</button></li>`;
             }).join('') + '</ul>'
           : `<p class="noresults">No boards match "${escapeHtml(query.trim())}".</p>`;
       }
