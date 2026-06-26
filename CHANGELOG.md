@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-06-26
+
 ### Fixed
 - **Version-aware server handoff** (#54): a long-running `serve.mjs` no longer keeps
   stale routes alive after an update. Previously `start()` reused any server on the same
