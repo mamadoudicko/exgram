@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Version-aware server handoff** (#54): a long-running `serve.mjs` no longer keeps
+  stale routes alive after an update. Previously `start()` reused any server on the same
+  workspace regardless of version, so the freshly-spawned (correct-version) process exited
+  and left the old build in charge — making a newly-added action (e.g. Duplicate) 404 even
+  though the on-disk viewer advertised it. `start()` now requires the **version** to match
+  too; on a mismatch the new server evicts the stale one (graceful loopback `POST
+  /api/shutdown`, falling back to `SIGTERM` via a new `pid` field in `/whoami`) and takes
+  over the port, so the skew self-heals on the next respawn. If the stale server is too old
+  to evict (pre-handoff: no shutdown route, no `pid`), the new server relocates to the next
+  free port and re-points `.exgram-url` instead of hanging.
+
+### Added
+- `POST /api/shutdown` (loopback-only) and a `pid` field in `/whoami`, supporting the
+  version-aware handoff above.
+
 ## [1.5.0] - 2026-06-24
 
 ### Added
