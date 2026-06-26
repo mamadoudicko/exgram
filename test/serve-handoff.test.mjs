@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import { get as httpGet } from 'node:http';
 import { mkdtempSync, rmSync, realpathSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
@@ -35,11 +36,35 @@ const srv = http.createServer((req, res) => {
 srv.listen(port, '127.0.0.1');
 `;
 
+// Poll with raw http (agent: false → no keep-alive) rather than fetch. This
+// scenario evicts one process and binds a NEW one on the SAME port; undici
+// (Node 18's fetch) pools the keep-alive socket to the dead process and the
+// first reuse throws ECONNRESET, which made these tests flake on Node 18. Raw,
+// connection-per-request http mirrors what serve.mjs's own probeWhoami uses.
+const httpGetText = (port, path) =>
+  new Promise((resolve) => {
+    const req = httpGet({ host: '127.0.0.1', port, path, timeout: 500, agent: false }, (res) => {
+      if (res.statusCode !== 200) {
+        res.resume();
+        return resolve(null);
+      }
+      let body = '';
+      res.setEncoding('utf8');
+      res.on('data', (c) => (body += c));
+      res.on('end', () => resolve(body));
+    });
+    req.on('timeout', () => {
+      req.destroy();
+      resolve(null);
+    });
+    req.on('error', () => resolve(null));
+  });
+
 const whoami = async (port) => {
+  const body = await httpGetText(port, '/whoami');
+  if (body == null) return null;
   try {
-    const res = await fetch(`http://127.0.0.1:${port}/whoami`);
-    if (!res.ok) return null;
-    return await res.json();
+    return JSON.parse(body);
   } catch {
     return null;
   }
@@ -68,9 +93,7 @@ async function startStub(ws, port, { version, pid = false, graceful = false }) {
     },
     stdio: 'ignore',
   });
-  const up = await waitFor(async () => {
-    try { return (await fetch(`http://127.0.0.1:${port}/health`)).ok; } catch { return false; }
-  });
+  const up = await waitFor(async () => (await httpGetText(port, '/health')) === 'ok');
   if (!up) { child.kill(); throw new Error('stub did not start'); }
   return child;
 }
