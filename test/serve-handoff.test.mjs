@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { get as httpGet } from 'node:http';
+import { get as httpGet, request as httpRequest } from 'node:http';
 import { mkdtempSync, rmSync, realpathSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
@@ -60,6 +60,25 @@ const httpGetText = (port, path) =>
     req.on('error', () => resolve(null));
   });
 
+// Raw POST returning the status code (agent: false → no pooling). `headers`
+// lets a test simulate a browser by sending an Origin.
+const httpPostStatus = (port, path, headers = {}) =>
+  new Promise((resolve) => {
+    const req = httpRequest(
+      { host: '127.0.0.1', port, path, method: 'POST', timeout: 500, agent: false, headers },
+      (res) => {
+        res.resume();
+        res.on('end', () => resolve(res.statusCode));
+      },
+    );
+    req.on('timeout', () => {
+      req.destroy();
+      resolve(null);
+    });
+    req.on('error', () => resolve(null));
+    req.end();
+  });
+
 const whoami = async (port) => {
   const body = await httpGetText(port, '/whoami');
   if (body == null) return null;
@@ -107,7 +126,10 @@ function startReal(ws, port) {
 
 test('a newer server EVICTS a stale same-workspace one via graceful /api/shutdown', async () => {
   const ws = mkdtempSync(join(tmpdir(), 'exgram-handoff-'));
-  const port = 38900 + Math.floor(Math.random() * 80);
+  // Disjoint from serve-rename [38100,38499], serve-duplicate [38600,38999],
+  // and the other handoff tests (39000/39100) — node --test runs files
+  // concurrently and the stub has no port-fallback, so bands must not overlap.
+  const port = 39200 + Math.floor(Math.random() * 80);
   let stub, real;
   try {
     // Stale stub: old version, NO pid -> the ONLY way to evict it is /api/shutdown.
@@ -166,6 +188,33 @@ test('a same-version same-workspace server is REUSED, not evicted (new process e
   } finally {
     if (real) real.kill();
     if (stub) stub.kill();
+    rmSync(ws, { recursive: true, force: true });
+  }
+});
+
+test('/api/shutdown ignores browser-originated POSTs (Origin) but obeys same-process callers', async () => {
+  const ws = mkdtempSync(join(tmpdir(), 'exgram-handoff-'));
+  const port = 39300 + Math.floor(Math.random() * 80);
+  let real;
+  try {
+    real = startReal(ws, port);
+    const up = await waitFor(async () => {
+      const w = await whoami(port);
+      return w && w.version === REAL_VERSION ? w : null;
+    });
+    assert.ok(up, 'real server is up');
+
+    // A cross-origin browser POST (carries Origin) must be refused, and the
+    // server must survive it — otherwise any visited site could kill the board.
+    assert.equal(await httpPostStatus(port, '/api/shutdown', { origin: 'http://evil.example' }), 403);
+    assert.equal(await httpGetText(port, '/health'), 'ok', 'server survived the cross-origin shutdown');
+
+    // A same-process caller (no Origin, as start() sends) shuts it down.
+    assert.equal(await httpPostStatus(port, '/api/shutdown', {}), 200);
+    const down = await waitFor(async () => ((await httpGetText(port, '/health')) === null ? true : null));
+    assert.ok(down, 'server shut down on a no-Origin POST');
+  } finally {
+    if (real) real.kill();
     rmSync(ws, { recursive: true, force: true });
   }
 });
