@@ -17,4 +17,5 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
       - name: Run tests (no dependencies)
+        working-directory: skills/exgram
         run: node --test

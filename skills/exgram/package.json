@@ -1,0 +1,45 @@
+{
+  "name": "exgram",
+  "version": "1.6.0",
+  "description": "Turn a natural-language prompt or an image into a live, editable Excalidraw diagram. An agent skill (Claude Code, Cursor, Codex, Copilot & 70+ agents) with auto-layout and a self-refreshing local board.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Mamadou Dicko",
+  "homepage": "https://github.com/mamadoudicko/exgram",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mamadoudicko/exgram.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mamadoudicko/exgram/issues"
+  },
+  "keywords": [
+    "excalidraw",
+    "diagram",
+    "claude",
+    "agent-skill",
+    "ai",
+    "architecture",
+    "flowchart",
+    "text-to-diagram"
+  ],
+  "bin": {
+    "exgram-build": "lib/build.mjs",
+    "exgram-serve": "lib/serve.mjs"
+  },
+  "scripts": {
+    "serve": "node lib/serve.mjs",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "SKILL.md",
+    "lib/",
+    "references/",
+    "styles/",
+    "assets/",
+    "viewer.html"
+  ]
+}

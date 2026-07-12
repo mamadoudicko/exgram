@@ -10,12 +10,12 @@ description: >-
 license: MIT
 allowed-tools:
   - Bash(node:*)
-  - Bash(curl:*)
+  - Bash(gh:*)
   - Read
   - Write
   - Edit
 metadata:
-  version: 1.2.2
+  version: "1.6.0"
   author: Mamadou Dicko
 ---
 

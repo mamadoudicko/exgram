@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-07-12
+
+### Added
+- **Create a blank board from the dashboard** (#56): a `＋ New board` button, to the right of
+  the Sort row, prompts for a name and creates a brand-new empty Excalidraw board via a new
+  loopback-only `POST /api/create` (slug-guarded, mirrors `/api/duplicate`), then opens it in
+  edit mode. No template, no `<slug>.json` spec — a truly blank canvas.
+
+### Changed
+- **Skill moved to `skills/exgram/`** so `npx skills add/update` ships the **full runtime**.
+  The `skills` CLI treats a repo-root `SKILL.md` as a single-file skill and installs only
+  `SKILL.md` — which pruned `lib/`, `viewer.html`, and assets on update and broke the local
+  viewer. A subdirectory skill ships every file. Repo-root chrome (README, LICENSE, CHANGELOG)
+  stays put; a thin root `package.json` delegates `test`/`serve` into the skill; CI runs in the
+  new dir. **README install commands are unchanged.**
+- `SKILL.md` `metadata.version` is now kept in lockstep with `package.json` (see `RELEASING.md`),
+  and `allowed-tools` tightened (dropped unused `curl`, declared the `gh` used by bug reporting).
+
+### Fixed
+- Installs no longer lose their runtime on `npx skills update exgram` ("viewer missing").
+
 ## [1.5.1] - 2026-06-26
 
 ### Fixed

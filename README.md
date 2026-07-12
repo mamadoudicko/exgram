@@ -1,8 +1,8 @@
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./assets/wordmark-dark.svg" />
-  <img src="./assets/wordmark.svg" alt="exgram" width="380" />
+  <source media="(prefers-color-scheme: dark)" srcset="./skills/exgram/assets/wordmark-dark.svg" />
+  <img src="./skills/exgram/assets/wordmark.svg" alt="exgram" width="380" />
 </picture>
 
 ### Your agent's diagrams, live and editable.
@@ -13,7 +13,7 @@
 clean, auto-laid-out Excalidraw board appears in your browser. Ask for changes and it updates live.
 It's a Claude Code skill, so it runs on your agent with **no API key**.
 
-<sub>The wordmark above was drawn by exgram itself — see [`assets/wordmark.exgram.json`](./assets/wordmark.exgram.json).</sub>
+<sub>The wordmark above was drawn by exgram itself — see [`skills/exgram/assets/wordmark.exgram.json`](./skills/exgram/assets/wordmark.exgram.json).</sub>
 
 ![exgram diagram of its own pipeline, drawn live by exgram](./docs/how-exgram-works.png)
 
@@ -28,6 +28,8 @@ npx skills update exgram                                 # get the latest versio
 ```
 
 Needs **Node ≥ 18**, and internet on first load (the board pulls Excalidraw from a CDN).
+
+Skill page: [skills.sh/mamadoudicko/exgram](https://www.skills.sh/mamadoudicko/exgram)
 
 ## How to use
 
@@ -66,7 +68,7 @@ outside the skill folder on purpose, so running `npx skills update exgram` never
 
 ---
 
-Spec format and internals are in [`SKILL.md`](./SKILL.md); contributing in [`CONTRIBUTING.md`](./CONTRIBUTING.md).
+Spec format and internals are in [`SKILL.md`](./skills/exgram/SKILL.md); contributing in [`CONTRIBUTING.md`](./CONTRIBUTING.md).
 
 ## License
 
