@@ -89,8 +89,7 @@
     #index .sort button.sortkey.active { color: #1971c2; border-color: #74c0fc; background: #e7f5ff; }
     #index .sort button.sortkey .arrow { color: #adb5bd; margin-left: 2px; }
     #index .sort button.sortkey.active .arrow { color: #1971c2; }
-    /* "＋ New board" sits at the right end of the sort row; accented like a
-       primary action so it reads as the create affordance, not a sort key. */
+    /* "＋ New board" sits at the right end of the sort row, accented as a primary action. */
     #index .sort button.newboard {
       margin-left: auto; font: inherit; cursor: pointer; color: #1971c2; background: #e7f5ff;
       border: 1px solid #74c0fc; border-radius: 8px; padding: 4px 10px; line-height: 1.4;
@@ -312,14 +311,11 @@
       }
     }
 
-    // ---- shared create flow: prompt for a slug, validate against existing
-    // boards, POST /api/create. Returns the new slug on success (the caller then
-    // opens /?d=<slug>&edit=1 on a blank board), or null if cancelled/empty/failed
-    // (it alerts on a real failure). Mirrors renameBoard / duplicateBoard.
+    // Prompt for a slug, validate, POST /api/create; returns the new slug or null.
     async function createBoard(existing) {
       const known = new Set(existing || []);
       let to = (window.prompt('Name your new board:', '') || '').trim();
-      if (!to) return null; // cancelled or empty
+      if (!to) return null;
       if (!SLUG_RE.test(to)) {
         alert('Invalid name. Use letters, digits, dashes or underscores (must start with a letter or digit).');
         return null;
