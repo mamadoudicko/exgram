@@ -29,6 +29,8 @@ npx skills update exgram                                 # get the latest versio
 
 Needs **Node ≥ 18**, and internet on first load (the board pulls Excalidraw from a CDN).
 
+Skill page: [skills.sh/mamadoudicko/exgram](https://www.skills.sh/mamadoudicko/exgram)
+
 ## How to use
 
 Just ask:
