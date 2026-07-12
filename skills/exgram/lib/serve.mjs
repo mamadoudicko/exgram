@@ -50,7 +50,7 @@ const absWorkspace = (() => {
   }
 })();
 
-// Version string from the repo root package.json (repo root is parent of lib/).
+// Version string from the skill's package.json (the skill dir is parent of lib/).
 const VERSION = (() => {
   try {
     return JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).version || '0.0.0';

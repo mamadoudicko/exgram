@@ -40,7 +40,6 @@
     "references/",
     "styles/",
     "assets/",
-    "viewer.html",
-    "docs/"
+    "viewer.html"
   ]
 }
