@@ -89,6 +89,14 @@
     #index .sort button.sortkey.active { color: #1971c2; border-color: #74c0fc; background: #e7f5ff; }
     #index .sort button.sortkey .arrow { color: #adb5bd; margin-left: 2px; }
     #index .sort button.sortkey.active .arrow { color: #1971c2; }
+    /* "＋ New board" sits at the right end of the sort row; accented like a
+       primary action so it reads as the create affordance, not a sort key. */
+    #index .sort button.newboard {
+      margin-left: auto; font: inherit; cursor: pointer; color: #1971c2; background: #e7f5ff;
+      border: 1px solid #74c0fc; border-radius: 8px; padding: 4px 10px; line-height: 1.4;
+      font-weight: 600;
+    }
+    #index .sort button.newboard:hover { background: #d0ebff; }
     /* on a narrow viewport, drop the "created …" segment of the meta line */
     @media (max-width: 480px) { #index li a .meta .created { display: none; } }
     /* search/filter box above the boards list */
@@ -304,6 +312,39 @@
       }
     }
 
+    // ---- shared create flow: prompt for a slug, validate against existing
+    // boards, POST /api/create. Returns the new slug on success (the caller then
+    // opens /?d=<slug>&edit=1 on a blank board), or null if cancelled/empty/failed
+    // (it alerts on a real failure). Mirrors renameBoard / duplicateBoard.
+    async function createBoard(existing) {
+      const known = new Set(existing || []);
+      let to = (window.prompt('Name your new board:', '') || '').trim();
+      if (!to) return null; // cancelled or empty
+      if (!SLUG_RE.test(to)) {
+        alert('Invalid name. Use letters, digits, dashes or underscores (must start with a letter or digit).');
+        return null;
+      }
+      if (known.has(to)) {
+        alert(`A board named "${to}" already exists.`);
+        return null;
+      }
+      try {
+        const res = await fetch('/api/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slug: to }),
+        });
+        if (!res.ok) {
+          alert(res.status === 409 ? `A board named "${to}" already exists.` : `Create failed (${res.status}).`);
+          return null;
+        }
+        return to;
+      } catch {
+        alert('Create failed: could not reach the server.');
+        return null;
+      }
+    }
+
     // ---- index mode: no ?d= -> list all live boards ----
     if (!slug) {
       boot.remove();
@@ -458,6 +499,7 @@
             '<span>Sort:</span>' +
             SORT_KEYS.map((k) =>
               `<button class="sortkey" type="button" data-key="${k}">${SORT_LABELS[k]}<span class="arrow"></span></button>`).join('') +
+            '<button class="newboard" type="button" title="Create a new blank board">＋ New board</button>' +
           '</div>' +
           '<div id="board-list"></div>';
         const input = document.getElementById('board-search');
@@ -512,6 +554,12 @@
       // Per-row delete (styled confirm) and rename, event-delegated so they
       // survive the periodic re-render.
       index.addEventListener('click', async (ev) => {
+        const newBtn = ev.target.closest('button.newboard');
+        if (newBtn) {
+          const to = await createBoard(allBoards.map((b) => b.slug));
+          if (to) location.href = `/?d=${encodeURIComponent(to)}&edit=1`;
+          return;
+        }
         const renameBtn = ev.target.closest('button.rename');
         if (renameBtn) {
           const s = decodeURIComponent(renameBtn.dataset.slug);
